@@ -1,0 +1,95 @@
+# Enterprise Pilot 容器化编排
+# 使用前：copy .env.example .env 并填写真实配置
+# 启动：docker-compose up -d --build
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: ep-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-your_password_here}
+      MYSQL_DATABASE: enterprise_pilot
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks:
+      - ep-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-your_password_here}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ep-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - ep-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  java-backend:
+    build:
+      context: ./enterprise-pilot-java
+    container_name: ep-java
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/enterprise_pilot?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-your_password_here}
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_at_least_32_bytes}
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY:-your_zhipu_api_key_here}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8080:8080"
+    networks:
+      - ep-network
+
+  python-ai:
+    build:
+      context: ./enterprise-pilot-python
+    container_name: ep-python
+    restart: unless-stopped
+    depends_on:
+      - java-backend
+    environment:
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY:-your_zhipu_api_key_here}
+    ports:
+      - "8001:8001"
+    networks:
+      - ep-network
+
+  web:
+    build:
+      context: ./enterprise-pilot-web
+    container_name: ep-web
+    restart: unless-stopped
+    depends_on:
+      - java-backend
+    ports:
+      - "5173:80"
+    networks:
+      - ep-network
+
+volumes:
+  mysql_data:
+
+networks:
+  ep-network:
+    driver: bridge

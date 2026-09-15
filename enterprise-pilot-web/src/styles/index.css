@@ -1,0 +1,387 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;800&display=swap');
+
+:root {
+  /* ============ Brand — deep petrol teal (restrained, distinctive accent) ============ */
+  --brand-50: #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-200: #99f6e4;
+  --brand-300: #5eead4;
+  --brand-400: #2dd4bf;
+  --brand-500: #14b8a6;
+  --brand-600: #0f766e;
+  --brand-700: #115e59;
+  --brand-800: #134e4a;
+  --brand-900: #134e4a;
+
+  /* ============ Neutral scale — warm stone (charcoal-tinted) ============ */
+  --ink-950: #1a1917;
+  --ink-900: #232220;
+  --ink-800: #2e2d2a;
+  --ink-700: #45433f;
+  --ink-600: #57554f;
+  --ink-500: #75736c;
+  --ink-400: #a3a19a;
+  --ink-300: #d4d2cd;
+  --ink-200: #e6e4e0;
+  --ink-150: #efeeea;
+  --ink-100: #f6f5f2;
+  --ink-50: #fbfaf8;
+
+  /* ============ Semantic ============ */
+  --success: #16a34a;
+  --success-bg: #f0fdf4;
+  --warning: #d97706;
+  --warning-bg: #fffbeb;
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
+  --info: #78716c;
+  --info-bg: #f6f5f2;
+
+  /* ============ Surfaces ============ */
+  --bg-page: #f7f6f3;
+  --bg-card: #ffffff;
+  --border-subtle: #f1f0ed;
+  --border-default: #e8e6e2;
+  --border-strong: #d4d2cd;
+
+  /* ============ Shadows — very subtle, warm-tinted ============ */
+  --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-sm: 0 1px 3px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-md: 0 4px 6px -2px rgba(28, 25, 23, 0.05), 0 2px 4px -2px rgba(28, 25, 23, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(28, 25, 23, 0.08), 0 4px 6px -4px rgba(28, 25, 23, 0.05);
+
+  /* ============ Radius — subtle ============ */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+
+  /* ============ Typography ============ */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+
+  /* ============ Motion ============ */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 0.12s;
+  --dur-base: 0.2s;
+  --dur-slow: 0.3s;
+
+  /* ============ Element Plus theme override ============ */
+  --el-color-primary: #0f766e;
+  --el-color-primary-light-3: #3f8f88;
+  --el-color-primary-light-5: #7fb8b3;
+  --el-color-primary-light-7: #bfdcd9;
+  --el-color-primary-light-8: #d7eae8;
+  --el-color-primary-light-9: #f0fbfa;
+  --el-color-primary-dark-2: #0c5e58;
+  --el-color-success: #16a34a;
+  --el-color-warning: #d97706;
+  --el-color-danger: #dc2626;
+  --el-color-error: #dc2626;
+  --el-color-info: #78716c;
+  --el-border-radius-base: 6px;
+  --el-border-radius-small: 4px;
+  --el-border-radius-round: 20px;
+  --el-font-family: var(--font-sans);
+  --el-font-size-base: 14px;
+  --el-text-color-primary: #1c1917;
+  --el-text-color-regular: #44403c;
+  --el-text-color-secondary: #78716c;
+  --el-text-color-placeholder: #a8a29e;
+  --el-border-color: #e8e6e2;
+  --el-border-color-light: #f1f0ed;
+  --el-border-color-lighter: #fbfaf8;
+  --el-fill-color-blank: #ffffff;
+  --el-fill-color-light: #fbfaf8;
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f7f6f3;
+  --el-box-shadow-light: 0 4px 6px -2px rgba(28, 25, 23, 0.05), 0 2px 4px -2px rgba(28, 25, 23, 0.04);
+  --el-box-shadow: 0 10px 15px -3px rgba(28, 25, 23, 0.08), 0 4px 6px -4px rgba(28, 25, 23, 0.05);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink-900);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+/* ============ Typography scale ============ */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink-950);
+}
+
+/* ============ Page header ============ */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ink-950);
+}
+
+.page-header .sub {
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--ink-600);
+}
+
+/* ============ Element Plus refinements ============ */
+.el-card {
+  --el-card-border-color: var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.el-button {
+  font-weight: 500;
+  transition: all var(--dur-base) var(--ease-out);
+  --el-button-hover-link-text-color: var(--brand-600);
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--brand-600);
+  --el-button-border-color: var(--brand-600);
+  --el-button-hover-bg-color: var(--brand-700);
+  --el-button-hover-border-color: var(--brand-700);
+  --el-button-active-bg-color: var(--brand-800);
+  --el-button-active-border-color: var(--brand-800);
+}
+
+.el-button:active {
+  transform: translateY(1px);
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  transition: box-shadow var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+  box-shadow: 0 0 0 1px var(--el-input-border-color, var(--border-default)) inset;
+}
+
+.el-input__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--ink-400) inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-textarea__inner.is-focus {
+  box-shadow: 0 0 0 2px var(--brand-100) inset !important;
+}
+
+.el-table {
+  --el-table-header-bg-color: var(--ink-50);
+  --el-table-header-text-color: var(--ink-600);
+  --el-table-border-color: var(--border-default);
+  --el-table-row-hover-bg-color: var(--brand-50);
+  font-size: 13px;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600;
+  background: var(--ink-50);
+}
+
+.el-tag {
+  font-weight: 500;
+  border-radius: 4px;
+  --el-tag-border-radius: 4px;
+}
+
+.el-dialog {
+  border-radius: var(--radius-xl);
+  --el-dialog-border-radius: var(--radius-xl);
+}
+
+.el-dialog__header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-default);
+  margin-right: 0;
+}
+
+.el-dialog__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.el-message {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.el-message-box {
+  border-radius: var(--radius-lg);
+}
+
+.el-dropdown-menu {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--border-default) !important;
+  padding: 4px !important;
+}
+
+.el-dropdown-menu__item {
+  border-radius: var(--radius-md);
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+/* ============ Premium avatar ring ============ */
+@property --ring-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.avatar-ring {
+  border-radius: 50%;
+  padding: 2px;
+  box-sizing: border-box;
+  background: conic-gradient(
+    from calc(210deg + var(--ring-angle, 0deg)),
+    #14b8a6,
+    #2dd4bf,
+    #0d9488,
+    #14b8a6
+  );
+  transition: --ring-angle var(--dur-base) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.avatar-ring:hover {
+  --ring-angle: 25deg;
+}
+
+.ring-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #fff;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-700);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.ring-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ============ Scrollbar ============ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-300);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-400);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ============ Page transitions ============ */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--dur-base) var(--ease-in-out), transform var(--dur-base) var(--ease-out);
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* ============ Shared empty state ============ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: var(--ink-400);
+  text-align: center;
+}
+
+.empty-state .empty-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--ink-100);
+  color: var(--ink-400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.empty-state .empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-600);
+  margin-bottom: 4px;
+}
+
+.empty-state .empty-desc {
+  font-size: 12px;
+  color: var(--ink-400);
+}
+
+/* ============ Utility ============ */
+.text-muted {
+  color: var(--ink-600);
+}
+
+.text-sm {
+  font-size: 13px;
+}
+
+.text-xs {
+  font-size: 12px;
+}
