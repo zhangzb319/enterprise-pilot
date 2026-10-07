@@ -7,7 +7,11 @@ from app.vector_store.chroma_client import ChromaStore
 
 def split_text(text: str, size: int = 800, overlap: int = 120) -> list[str]:
     text = text.strip()
-    return [text[start:start + size] for start in range(0, len(text), size - overlap)]
+    chunks = [text[start:start + size] for start in range(0, len(text), size - overlap)]
+    # 最后一块长度 <= overlap 时,它只是前一块的重复(步长 = size - overlap),直接丢弃
+    if len(chunks) > 1 and len(chunks[-1]) <= overlap:
+        chunks.pop()
+    return chunks
 
 
 class RagService:
