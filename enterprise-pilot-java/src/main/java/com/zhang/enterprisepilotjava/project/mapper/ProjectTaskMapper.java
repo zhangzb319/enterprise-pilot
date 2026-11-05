@@ -19,7 +19,7 @@ public interface ProjectTaskMapper extends BaseMapper<ProjectTask> {
         from project_task t
         left join sys_user u on t.assignee_id = u.id
         where t.project_id = #{projectId}
-        order by t.due_date is null, t.due_date
+        order by t.due_date nulls last, t.due_date
         """)
     List<ProjectTaskVO> selectByProjectId(@Param ("projectId") Long projectId);
 
@@ -41,7 +41,7 @@ public interface ProjectTaskMapper extends BaseMapper<ProjectTask> {
                select 1 from project_member m
                where m.project_id = p.id and m.user_id = #{userId}
            )
-        order by t.due_date is null, t.due_date, t.id
+        order by t.due_date nulls last, t.due_date, t.id
         """)
     List<ProjectTaskVO> selectMyTasks(@Param("userId") Long userId);
 }

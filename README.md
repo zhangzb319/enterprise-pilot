@@ -11,7 +11,7 @@
 |  enterprise-     |  HTTP  |  enterprise-     |  HTTP  |  enterprise-     |
 |  pilot-web       | -----> |  pilot-java      | -----> |  pilot-python    |
 |  Vue 3 + Vite    |  :5173 |  Spring Boot 4   |  :8080 |  FastAPI         |
-|  Element Plus    |        |  MySQL + Redis   |        |  Chroma + 智谱   |
+|  Element Plus    |        |PostgreSQL + Redis|        |  Chroma + 智谱   |
 +------------------+        +------------------+        +------------------+
 ```
 
@@ -32,7 +32,7 @@
 | 后端 | Java + Spring Boot + MyBatis-Plus | 17 / 4.0.7 / 3.5.15 |
 | AI 服务 | Python + FastAPI + ChromaDB | 3.11+ |
 | 前端 | Vue 3 + Vite + Element Plus + Pinia | 3.5 / 6.0 / 2.9 / 2.3 |
-| 数据库 | MySQL | 8.x |
+| 数据库 | PostgreSQL | 14+ |
 | 缓存 | Redis | 7.x |
 | LLM | 智谱 GLM(`glm-4-flash` + `embedding-2`) | — |
 
@@ -43,7 +43,7 @@
 - Java 17+ 与 Maven 3.8+(也可用仓库自带的 `mvnw`)
 - Node.js 18+
 - Python 3.11+
-- MySQL 8
+- PostgreSQL 14+(本地安装或 Docker 容器均可)
 - Redis 7(可选,`start.bat` 会尝试自动拉起;找不到时 Java 端缓存会降级)
 
 ---
@@ -83,10 +83,11 @@ start.bat
 2. **初始化数据库**(建表):
 
    ```bash
-   mysql -u root -p < sql/schema.sql
+   psql -U postgres -c "CREATE DATABASE \"enterprise-pilot\" ENCODING 'UTF8';"
+   psql -U postgres -d enterprise-pilot -f sql/schema_postgres.sql
    ```
 
-   需要演示数据时再执行 `sql/seed_data.sql`。
+   演示数据可用 `sql/seed_data.sql`(MySQL 语法,需手工改写)或直接从旧库迁移。
 
 3. **分别启动三个服务**:
 
@@ -113,7 +114,7 @@ start.bat
 - `enterprise-pilot-web/Dockerfile` —— 缺失
 - `enterprise-pilot-python/Dockerfile` —— 是一个 **0 字节的空目录**,并非文件
 
-补全这三个文件后 `docker-compose up -d --build` 才能工作。MySQL 首次启动会自动执行 `sql/schema.sql` 初始化表结构。
+补全这三个文件后 `docker-compose up -d --build` 才能工作。MySQL 首次启动会自动执行 `sql/schema.sql` 初始化表结构(注意:docker-compose 编排的是 MySQL,与当前单机部署用的 PostgreSQL 不同步,使用前需改造)。
 
 ---
 
@@ -148,7 +149,8 @@ enterprise-pilot/
 │       ├── api/               # axios 实例与接口封装
 │       ├── layouts/           # MainLayout 主框架
 │       └── router/            # 路由与登录守卫
-├── sql/                       # schema.sql 建表 + seed_data.sql 演示数据 + migration_*.sql 增量脚本
+├── sql/                       # schema_postgres.sql 建表(PG,当前使用)+ schema.sql(旧 MySQL 版)
+│                              #   + seed_data.sql 演示数据 + migration_*.sql 增量脚本
 ├── docs/README.md             # API 端点清单 + 表结构概览 + 部署说明
 ├── start.bat / stop.bat       # Windows 一键启动 / 停止
 ├── docker-compose.yml         # 容器化编排(需先补 Dockerfile)
@@ -165,7 +167,7 @@ enterprise-pilot/
 | Web 前端 | 5173 | Vite 开发服务器 |
 | Java 后端 | 8080 | REST API,前缀 `/api`,受 JWT 保护 |
 | Python AI 服务 | 8001 | 前缀 `/api/v1`,自带 Swagger UI(`/docs`) |
-| MySQL | 3306 | 数据库 `enterprise_pilot` |
+| PostgreSQL | 5432 | 数据库 `enterprise-pilot`(Docker 容器 `my-postgres`) |
 | Redis | 6379 | 缓存(项目成员、我的项目列表、JWT 黑名单) |
 
 完整端点清单与 20 张表的结构概览见 [docs/README.md](docs/README.md)。

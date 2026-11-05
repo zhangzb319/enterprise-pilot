@@ -139,12 +139,12 @@ for %%v in (DB_URL DB_USERNAME DB_PASSWORD JWT_SECRET ZHIPU_API_KEY) do (
 if "%PLACEHOLDER_ERR%"=="1" goto :fail
 echo [OK] Environment variables check passed
 
-REM --- Check MySQL / Redis ---
-call :check_port 127.0.0.1 3306
+REM --- Check PostgreSQL / Redis ---
+call :check_port 127.0.0.1 5432
 if errorlevel 1 (
-    echo [WARN] MySQL ^(3306^) not reachable, Java backend may fail to start
+    echo [WARN] PostgreSQL ^(5432^) not reachable, Java backend may fail to start
 ) else (
-    echo [OK] MySQL ^(3306^) reachable
+    echo [OK] PostgreSQL ^(5432^) reachable
 )
 call :check_port 127.0.0.1 6379
 if errorlevel 1 (

@@ -87,7 +87,7 @@ Swagger UI:启动后访问 <http://localhost:8001/docs>。
 | `list_my_tasks` | `/api/projects/tasks/my` |
 | `find_colleague` | `/api/users/directory` |
 
-> **注意**:Python 服务的数据库来源是**本地 ChromaDB 向量库**(`CHROMA_PERSIST_DIR`),不是 MySQL。`.env` 里的 `JAVA_BACKEND_URL` 用于 Agent 调用上述 Java 接口时透传用户 JWT。
+> **注意**:Python 服务的数据库来源是**本地 ChromaDB 向量库**(`CHROMA_PERSIST_DIR`),不直连关系库。`.env` 里的 `JAVA_BACKEND_URL` 用于 Agent 调用上述 Java 接口时透传用户 JWT。
 
 ---
 
@@ -133,7 +133,7 @@ Swagger UI:启动后访问 <http://localhost:8001/docs>。
 | agent_conversation | Agent 会话表 | ❌ 无代码引用 |
 | agent_message | Agent 消息表 | ❌ 无代码引用 |
 
-> ⚠️ **本模块 5 张表全部未被代码使用**。RAG 链路实际把文档元数据与分块存在 **ChromaDB** 里(`knowledge_chunks` 集合,与同名 MySQL 表无关),没有回写 MySQL。表结构是设计留存,当前属于空转。
+> ⚠️ **本模块 5 张表全部未被代码使用**。RAG 链路实际把文档元数据与分块存在 **ChromaDB** 里(`knowledge_chunks` 集合,与同名关系表无关),没有回写数据库。表结构是设计留存,当前属于空转。
 
 ### 其他(3 张)
 
@@ -151,7 +151,7 @@ Swagger UI:启动后访问 <http://localhost:8001/docs>。
 
 ### 方式一:单机部署(推荐开发环境)
 
-前置条件:Java 17+、Maven 3.8+、Node.js 18+、Python 3.11+、MySQL 8、Redis 7。
+前置条件:Java 17+、Maven 3.8+、Node.js 18+、Python 3.11+、PostgreSQL 14+(或 Docker 跑 `postgres` 容器)、Redis 7。
 
 1. **配置环境变量**——两个子项目的模板**内容不同**,必须分别复制,不能共用根目录的 `.env.example`:
 
@@ -163,13 +163,14 @@ Swagger UI:启动后访问 <http://localhost:8001/docs>。
    - `enterprise-pilot-java/.env` → `DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`JWT_SECRET`,由 `start.bat` 注入为进程环境变量,再被 `application.yml` 的 `${...}` 读取。
    - `enterprise-pilot-python/.env` → `ZHIPU_API_KEY`、`ZHIPU_BASE_URL`、`ZHIPU_CHAT_MODEL`、`ZHIPU_EMBEDDING_MODEL`、`ASR_ENDPOINT`、`JAVA_BACKEND_URL`、`CHROMA_PERSIST_DIR`,由 `pydantic-settings` 直接从文件加载。
 
-2. 初始化数据库:
+2. 初始化数据库(先建库,再建表):
 
    ```bash
-   mysql -u root -p < sql/schema.sql
+   psql -U postgres -c "CREATE DATABASE \"enterprise-pilot\" ENCODING 'UTF8';"
+   psql -U postgres -d enterprise-pilot -f sql/schema_postgres.sql
    ```
 
-   需要演示数据时再执行 `sql/seed_data.sql`。
+   Docker 方式则通过容器执行:`docker exec -i <pg容器名> psql -U postgres -d enterprise-pilot -f - < sql/schema_postgres.sql`。
 
 3. 一键启动(自动拉起 Redis、Java、Python、前端):
 
@@ -220,4 +221,4 @@ Swagger UI:启动后访问 <http://localhost:8001/docs>。
    docker-compose down
    ```
 
-> 说明:MySQL 首次启动会自动执行 `sql/schema.sql` 初始化表结构。详细编排见根目录 `docker-compose.yml`。
+> 说明:MySQL 首次启动会自动执行 `sql/schema.sql` 初始化表结构(该编排当前不可用,见上)。单机部署使用 PostgreSQL,建表脚本为 `sql/schema_postgres.sql`。

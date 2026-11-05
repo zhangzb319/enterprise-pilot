@@ -30,10 +30,13 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
     public NotificationPageVO getMyNotifications(int page, int size) {
         Long userId = SecurityUtil.getCurrentUserId();
         LambdaQueryWrapper<Notification> wrapper = new LambdaQueryWrapper<Notification>()
-                .eq(Notification::getUserId, userId)
-                .orderByDesc(Notification::getCreatedAt);
-        long total = this.count(wrapper);
-        List<NotificationVO> records = this.list(wrapper.last("limit " + (page - 1) * size + ", " + size))
+                .eq(Notification::getUserId, userId);
+        // count 用不含 ORDER BY 的条件:PG 的聚合查询不允许 ORDER BY 无聚合列
+        long total = this.count(new LambdaQueryWrapper<Notification>()
+                .eq(Notification::getUserId, userId));
+        // PG 语法:OFFSET 在 LIMIT 之后;MyBatis-Plus 的 last 直接拼在 SQL 尾部
+        List<NotificationVO> records = this.list(wrapper.orderByDesc(Notification::getCreatedAt)
+                .last("limit " + size + " offset " + (page - 1) * size))
                 .stream().map(n -> {
                     NotificationVO vo = new NotificationVO();
                     BeanUtils.copyProperties(n, vo);

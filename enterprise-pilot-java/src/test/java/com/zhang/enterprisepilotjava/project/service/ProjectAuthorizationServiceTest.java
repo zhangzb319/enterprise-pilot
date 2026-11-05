@@ -42,7 +42,10 @@ class ProjectAuthorizationServiceTest {
     void memberCanAccessProject() {
         authenticateAs(2L);
         when(projectMapper.selectById(10L)).thenReturn(projectOwnedBy(1L));
-        when(projectMemberMapper.countByProjectIdAndUserId(10L, 2L)).thenReturn(1);
+        // 实现走 Redis Set:无缓存时查全量成员ID并填充
+        when(redisService.exists("project:members:10")).thenReturn(false);
+        when(projectMemberMapper.selectUserIdsByProjectId(10L)).thenReturn(List.of(2L, 5L));
+        when(redisService.sismember("project:members:10", "2")).thenReturn(true);
 
         assertDoesNotThrow(() -> service.requireMember(10L));
     }
@@ -51,7 +54,8 @@ class ProjectAuthorizationServiceTest {
     void nonMemberCannotAccessProject() {
         authenticateAs(3L);
         when(projectMapper.selectById(10L)).thenReturn(projectOwnedBy(1L));
-        when(projectMemberMapper.countByProjectIdAndUserId(10L, 3L)).thenReturn(0);
+        when(redisService.exists("project:members:10")).thenReturn(true);
+        when(redisService.sismember("project:members:10", "3")).thenReturn(false);
 
         assertThrows(BusinessException.class, () -> service.requireMember(10L));
     }
