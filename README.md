@@ -133,6 +133,7 @@ enterprise-pilot/
 │       └── notification/      # 通知
 ├── enterprise-pilot-python/   # FastAPI AI 服务
 │   └── app/
+│       ├── agent/             # Agent 骨架:registry(工具注册表)、loop(两段式循环)、tools(6 个工具)
 │       ├── api/v1/            # 路由:rag、agent、meeting
 │       ├── services/          # rag_service、agent_service、meeting_service
 │       ├── clients/           # llm_client(智谱)、java_client(回调 Java)、asr_client
@@ -147,7 +148,7 @@ enterprise-pilot/
 │       ├── api/               # axios 实例与接口封装
 │       ├── layouts/           # MainLayout 主框架
 │       └── router/            # 路由与登录守卫
-├── sql/                       # schema.sql 建表 + seed_data.sql 演示数据
+├── sql/                       # schema.sql 建表 + seed_data.sql 演示数据 + migration_*.sql 增量脚本
 ├── docs/README.md             # API 端点清单 + 表结构概览 + 部署说明
 ├── start.bat / stop.bat       # Windows 一键启动 / 停止
 ├── docker-compose.yml         # 容器化编排(需先补 Dockerfile)
@@ -182,8 +183,8 @@ enterprise-pilot/
 | 项目 | ✅ 可用 | 项目、成员、任务、讨论树;`ProjectTaskServiceImpl` / `ProjectDiscussionServiceImpl` 已接入成员鉴权 |
 | 会议预订 | ✅ 可用 | 会议室管理 + 预订 / 取消 / 我的预订 |
 | 通知 / 消息 | ✅ 可用 | 前端轮询获取 |
-| 知识库 RAG | ⚠️ 独立可用 | 上传 → 分块(800 字 / 120 重叠)→ 向量化 → 检索 → 基于上下文作答。`/rag/ask` 可正常调用 |
-| AI 助手 | ⚠️ 部分可用 | `AgentService` 用**关键词 if/else** 判断"我的会议 / 我的项目 / 我的任务"并回调 Java 取数;**未接入 RAG**,页面上"知识库"标签目前无对应链路 |
+| 知识库 RAG | ⚠️ 独立可用 | 上传 → 分块(800 字 / 120 重叠)→ 向量化 → 检索 → 基于上下文作答。`/rag/ask` 可正常调用。**检索依赖智谱 embedding 额度,额度不足时返回 1113 错误** |
+| AI 助手 | ✅ 可用 | 基于 GLM 原生 function calling 的工具化 Agent:6 个工具(知识库检索、会议、会议室、项目、任务、通讯录)由模型自主选择,支持并行调用与流式作答。详见 `enterprise-pilot-python/app/agent/` |
 | 会议纪要(ASR) | ❌ 未闭环 | `meeting_summary.process_status` 无代码写入,`/meetings/summary` 与 `/transcript` 是孤立端点,预约成功后不会自动触发 |
 | 考勤 | ❌ 空壳 | `attendance_record` 表存在,但无 Java 包、无接口、无前端页面 |
 | Docker 部署 | ❌ 不可用 | 三个 Dockerfile 缺失,见上文 |
@@ -196,11 +197,12 @@ enterprise-pilot/
 
 1. **凭据** — `enterprise-pilot-python/.env` 内可能存有真实智谱 API Key。该目录**不是 git 仓库**(无 `.git/`),`.gitignore` 也已忽略 `*.env`,但物理文件仍在。**若确为真实密钥,请立即到智谱控制台作废并重新签发。**
 2. **Docker 无法构建** — 三个 Dockerfile 缺失 / 空目录,详见"方式三"。
-3. **AI 助手未接 RAG** — "知识库"标签名不符实;`rag_service.ask()` 已实现但无调用方,接线成本很低。
-4. **Agent 非真正 tool-use** — 关键词路由写死在 `prepare()` 里,换个说法就命中不了。
-5. **测试与 CI 薄弱** — Java 2 个测试类(其中 3 个用例覆盖项目鉴权),Python 2 个测试文件,无 CI 配置。
-6. **可观测性缺失** — 无 metrics、无 trace ID,仅靠 `runtime-logs/` 文件日志;MyBatis 日志走 stdout 输出全部 SQL,上线前应改为 SLF4J。
-7. **死依赖与冗余配置** — `spring-boot-starter-websocket` 引入未使用;`mybatis-plus.mapper-locations` 指向不存在的 XML 目录(全部走 `@Select` 注解)。
+3. **embedding 额度** — 知识库检索依赖智谱 `embedding-2`,额度耗尽时 `/rag/ask` 与 Agent 的知识库工具都会失败。Agent 侧已做兜底:工具全失败时直接返回"查询服务暂时不可用",不让模型用常识编造。
+4. **Agent 只走一轮工具批次** — 6 个工具都是独立的只读查询,模型在一轮内并行调用完;`MAX_TOOL_ROUNDS` 调到 2 以上会让答案退化为非流式返回(原因见 `app/agent/loop.py` 顶部注释)。
+5. **写操作未开放** — 建会议、改任务等有副作用的操作尚未注册为工具,需要先做前端二次确认。
+6. **测试与 CI 薄弱** — Java 2 个测试类,Python 3 个测试文件(Agent 循环 6 个用例),无 CI 配置。
+7. **可观测性缺失** — 无 metrics、无 trace ID,仅靠 `runtime-logs/` 文件日志;MyBatis 日志走 stdout 输出全部 SQL,上线前应改为 SLF4J。
+8. **死依赖与冗余配置** — `spring-boot-starter-websocket` 引入未使用;`mybatis-plus.mapper-locations` 指向不存在的 XML 目录(全部走 `@Select` 注解)。
 
 ---
 

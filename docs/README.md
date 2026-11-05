@@ -30,10 +30,12 @@
 | 会议预订 | PUT | /meeting/bookings/{id}/cancel | 取消预订 |
 | 项目 | POST | /projects | 创建项目 |
 | 项目 | GET | /projects/my | 我的项目列表 |
+| 项目 | GET | /projects/tasks/my | 我可见项目下的全部任务(单次聚合,带 `isMine` 标记) |
 | 项目 | POST | /projects/{projectId}/tasks | 创建项目任务 |
 | 项目 | GET | /projects/{projectId}/tasks | 项目任务列表 |
 | 项目 | POST | /projects/{projectId}/discussions | 创建讨论 |
 | 项目 | GET | /projects/{projectId}/discussion/tree | 讨论树 |
+| AI 助手 | POST | /agent/log | 上报问答日志,写入 `qa_log`(由 Python 服务调用) |
 | 消息 | GET | /messages/conversations | 会话列表 |
 | 消息 | GET | /messages/with/{userId} | 与某人的聊天记录 |
 | 消息 | POST | /messages/send | 发送消息 |
@@ -64,7 +66,28 @@
 
 Swagger UI:启动后访问 <http://localhost:8001/docs>。
 
-> **注意**:Python 服务的数据库来源是**本地 ChromaDB 向量库**(`CHROMA_PERSIST_DIR`),不是 MySQL。`.env` 里的 `JAVA_BACKEND_URL` 用于 Agent 处理"我的会议/项目/任务"时带着 JWT 回调 Java 取数。
+**AI 助手 SSE 事件协议**(`/api/v1/agent/chat/stream`)
+
+| 事件 | data 结构 | 说明 |
+|------|-----------|------|
+| (默认,无 event 行) | `{"text": "..."}` | 增量正文 |
+| `step` | `{"tool", "status": "running"\|"done", "summary"}` | 工具调用时间线 |
+| `sources` | `{"items": [{"document_id", "title"}]}` | 知识库引用,按文档去重 |
+| `done` | `{}` | 流结束 |
+| `error` | `{"message"}` | 失败原因 |
+
+**Agent 工具清单**(`enterprise-pilot-python/app/agent/tools/`)
+
+| 工具 | 数据来源 |
+|------|----------|
+| `search_knowledge` | Chroma 向量库(仅检索,不生成) |
+| `list_my_bookings` | `/api/meeting/bookings/my` |
+| `list_meeting_rooms` | `/api/meeting/rooms` |
+| `list_my_projects` | `/api/projects/my` |
+| `list_my_tasks` | `/api/projects/tasks/my` |
+| `find_colleague` | `/api/users/directory` |
+
+> **注意**:Python 服务的数据库来源是**本地 ChromaDB 向量库**(`CHROMA_PERSIST_DIR`),不是 MySQL。`.env` 里的 `JAVA_BACKEND_URL` 用于 Agent 调用上述 Java 接口时透传用户 JWT。
 
 ---
 

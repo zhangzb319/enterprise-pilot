@@ -12,4 +12,9 @@ public interface ProjectTaskService extends IService<ProjectTask> {
     void createTask(Long projectId, ProjectTaskCreateDTO dto);
 
     List<ProjectTaskVO> getTasksByProject(Long projectId);
+
+    /**
+     * 我可见项目下的全部任务(含 projectName 与 isMine 标记)。
+     */
+    List<ProjectTaskVO> getMyTasks();
 }

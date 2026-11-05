@@ -7,6 +7,18 @@ class AgentChatRequest(BaseModel):
     history: list[dict] | None = None
 
 
+class AgentStep(BaseModel):
+    tool: str
+    status: str
+    summary: str | None = None
+
+
+class AgentSource(BaseModel):
+    document_id: str
+    title: str
+
+
 class AgentChatResponse(BaseModel):
     answer: str
-    tool_result: dict | None = None
+    steps: list[AgentStep] = []
+    sources: list[AgentSource] = []

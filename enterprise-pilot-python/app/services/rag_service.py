@@ -26,10 +26,20 @@ class RagService:
                           [{"document_id": document_id, "title": title, "category": category or "", "created_at": created_at} for _ in chunks])
         return len(chunks)
 
-    async def ask(self, question: str, top_k: int) -> AskResponse:
+    async def retrieve(self, question: str, top_k: int) -> list[SourceChunk]:
+        """只做检索,不生成答案。Agent 工具调用走这里,避免同一问题被生成两次。"""
         result = self.store.query((await self.llm.embeddings([question]))[0], top_k)
-        documents, metadatas = result.get("documents", [[]])[0], result.get("metadatas", [[]])[0]
-        sources = [SourceChunk(document_id=item["document_id"], title=item["title"], content=doc) for doc, item in zip(documents, metadatas)]
+        documents = result.get("documents", [[]])[0]
+        metadatas = result.get("metadatas", [[]])[0]
+        return [
+            SourceChunk(document_id=item.get("document_id", ""), title=item.get("title", ""), content=doc)
+            for doc, item in zip(documents, metadatas)
+        ]
+
+    async def ask(self, question: str, top_k: int) -> AskResponse:
+        sources = await self.retrieve(question, top_k)
+        if not sources:
+            return AskResponse(answer="知识库中没有检索到相关内容。", sources=[])
         context = "\n\n".join(f"[{source.title}]\n{source.content}" for source in sources)
         answer = await self.llm.chat([{"role": "system", "content": "Answer only from the supplied context. State when context is insufficient."}, {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}])
         return AskResponse(answer=answer, sources=sources)

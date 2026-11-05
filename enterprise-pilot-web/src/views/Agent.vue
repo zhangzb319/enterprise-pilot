@@ -89,70 +89,27 @@
                 </button>
               </div>
 
-              <div v-if="m.toolResult" class="agent-tool">
-                <div class="agent-tool-label">
-                  <el-icon :size="13"><component :is="toolMeta(m.toolResult.name).icon" /></el-icon>
-                  {{ toolMeta(m.toolResult.name).label }}
+              <div v-if="m.steps && m.steps.length" class="agent-tool">
+                <div
+                  v-for="(s, si) in m.steps"
+                  :key="si"
+                  class="agent-step"
+                  :class="{ 'is-running': s.status === 'running' }"
+                >
+                  <span class="agent-step-dot">
+                    <span v-if="s.status === 'running'" class="agent-step-pulse"></span>
+                    <el-icon v-else :size="12"><component :is="toolMeta(s.tool).icon" /></el-icon>
+                  </span>
+                  <span class="agent-step-label">{{ toolMeta(s.tool).label }}</span>
+                  <span v-if="s.summary" class="agent-step-summary">{{ s.summary }}</span>
                 </div>
+              </div>
 
-                <!-- Meetings -->
-                <div v-if="m.toolResult.name === 'my_bookings'" class="agent-cards">
-                  <template v-if="m.toolResult.data && m.toolResult.data.length">
-                    <div v-for="bk in m.toolResult.data" :key="bk.id" class="agent-meeting">
-                      <div class="agent-meeting-time">
-                        <span class="agent-meeting-date">{{ fmtDate(bk.startTime) }}</span>
-                        <span class="agent-meeting-clock">{{ fmtTime(bk.startTime) }} – {{ fmtTime(bk.endTime) }}</span>
-                      </div>
-                      <div class="agent-meeting-body">
-                        <span class="agent-meeting-title">{{ bk.title }}</span>
-                        <span class="agent-meeting-meta">
-                          {{ bk.roomName }}<template v-if="bk.organizerName"> · {{ bk.organizerName }}</template>
-                        </span>
-                      </div>
-                      <span class="agent-meeting-status" :class="meetingStatusClass(bk.status)">
-                        {{ meetingStatusLabel(bk.status) }}
-                      </span>
-                    </div>
-                  </template>
-                  <div v-else class="agent-cards-empty">暂无会议安排</div>
-                </div>
-
-                <!-- Projects -->
-                <div v-else-if="m.toolResult.name === 'my_projects'" class="agent-cards">
-                  <template v-if="m.toolResult.data && m.toolResult.data.length">
-                    <div v-for="p in m.toolResult.data" :key="p.id" class="agent-meeting">
-                      <div class="agent-meeting-body">
-                        <span class="agent-meeting-title">{{ p.projectName }}</span>
-                        <span class="agent-meeting-meta">
-                          {{ p.ownerName }}<template v-if="p.endDate"> · 截止 {{ p.endDate }}</template>
-                        </span>
-                      </div>
-                      <span class="agent-meeting-status" :class="projectStatusClass(p.status)">
-                        {{ projectStatusLabel(p.status) }}
-                      </span>
-                      <span class="agent-progress">{{ p.progress || 0 }}%</span>
-                    </div>
-                  </template>
-                  <div v-else class="agent-cards-empty">暂无项目</div>
-                </div>
-
-                <!-- Tasks -->
-                <div v-else-if="m.toolResult.name === 'my_tasks'" class="agent-cards">
-                  <template v-if="m.toolResult.data && m.toolResult.data.length">
-                    <div v-for="t in m.toolResult.data" :key="t.id" class="agent-meeting">
-                      <div class="agent-meeting-body">
-                        <span class="agent-meeting-title">{{ t.title }}</span>
-                        <span class="agent-meeting-meta">
-                          {{ t.projectName }}<template v-if="t.assigneeName"> · {{ t.assigneeName }}</template>
-                          <template v-if="t.dueDate"> · 截止 {{ t.dueDate }}</template>
-                        </span>
-                      </div>
-                      <span class="agent-meeting-status" :class="taskStatusClass(t.status)">
-                        {{ taskStatusLabel(t.status) }}
-                      </span>
-                    </div>
-                  </template>
-                  <div v-else class="agent-cards-empty">暂无任务</div>
+              <div v-if="m.sources && m.sources.length" class="agent-sources">
+                <div class="agent-sources-label">参考资料</div>
+                <div v-for="(src, si) in m.sources" :key="src.document_id" class="agent-source">
+                  <span class="agent-source-index">{{ si + 1 }}</span>
+                  <span class="agent-source-title">{{ src.title }}</span>
                 </div>
               </div>
             </div>
@@ -205,7 +162,7 @@ import { agentApi, meetingApi, projectApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import {
   Calendar, Delete, CopyDocument, Refresh,
-  Download, FolderOpened, List, ChatDotRound
+  Download, FolderOpened, List, ChatDotRound, OfficeBuilding, Reading, User
 } from '@element-plus/icons-vue'
 import { Sparkles, ThumbsUp, ThumbsDown, ArrowUp } from 'lucide-vue-next'
 import { renderRich } from '@/utils/markdown'
@@ -226,7 +183,8 @@ function persistMessages() {
   const toSave = messages.value.map((m) => ({
     role: m.role,
     content: m.content,
-    toolResult: m.toolResult || null,
+    steps: m.steps || [],
+    sources: m.sources || [],
     feedback: m.feedback || null
   }))
   localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
@@ -242,18 +200,27 @@ const greeting = computed(() => {
 })
 
 const TOOL_META = {
-  my_bookings: { icon: Calendar, label: '已查询您的会议安排' },
-  my_projects: { icon: FolderOpened, label: '已查询您的项目' },
-  my_tasks: { icon: List, label: '已查询您的任务' }
+  list_my_bookings: { icon: Calendar, label: '查询会议安排' },
+  list_meeting_rooms: { icon: OfficeBuilding, label: '查询会议室' },
+  list_my_projects: { icon: FolderOpened, label: '查询项目' },
+  list_my_tasks: { icon: List, label: '查询任务' },
+  search_knowledge: { icon: Reading, label: '检索知识库' },
+  find_colleague: { icon: User, label: '查找同事' },
+  // 旧版记录里的工具名，保留映射避免历史对话显示成"工具结果"
+  my_bookings: { icon: Calendar, label: '查询会议安排' },
+  my_projects: { icon: FolderOpened, label: '查询项目' },
+  my_tasks: { icon: List, label: '查询任务' },
+  knowledge_base: { icon: Reading, label: '检索知识库' }
 }
 function toolMeta(name) {
-  return TOOL_META[name] || { icon: List, label: '工具结果' }
+  return TOOL_META[name] || { icon: List, label: '调用工具' }
 }
 
 function suggestionIcon(s) {
   if (s.includes('会议')) return Calendar
   if (s.includes('项目')) return FolderOpened
   if (s.includes('任务')) return List
+  if (s.includes('知识库')) return FolderOpened
   return ChatDotRound
 }
 
@@ -298,7 +265,8 @@ async function streamChat(payload, handlers, signal) {
     for (const part of parts) {
       const evt = parseSSE(part)
       if (!evt) continue
-      if (evt.event === 'tool') handlers.onTool?.(JSON.parse(evt.data))
+      if (evt.event === 'step') handlers.onStep?.(JSON.parse(evt.data))
+      else if (evt.event === 'sources') handlers.onSources?.(JSON.parse(evt.data))
       else if (evt.event === 'error') handlers.onError?.(JSON.parse(evt.data)?.message || '流式请求失败')
       else if (evt.event === 'done') handlers.onDone?.()
       else if (evt.data) handlers.onDelta?.(JSON.parse(evt.data)?.text || '')
@@ -312,7 +280,7 @@ async function send(text) {
   input.value = ''
   const history = buildHistory()
   messages.value.push({ role: 'user', content })
-  const assistantMsg = { role: 'assistant', content: '', toolResult: null, feedback: null }
+  const assistantMsg = { role: 'assistant', content: '', steps: [], sources: [], feedback: null }
   messages.value.push(assistantMsg)
   loading.value = true
   scrollToBottom()
@@ -325,7 +293,22 @@ async function send(text) {
     await streamChat(
       { message: content, history },
       {
-        onTool: (tool) => { lastDataAt = Date.now(); assistantMsg.toolResult = tool; if (!isUnmounted) persistMessages() },
+        onStep: (step) => {
+          lastDataAt = Date.now()
+          // 同名工具的 running 事件先到、done 事件后到，按名称配对
+          const pending = assistantMsg.steps.find((s) => s.tool === step.tool && s.status === 'running')
+          if (step.status === 'done' && pending) {
+            pending.status = 'done'
+            pending.summary = step.summary || ''
+          } else {
+            assistantMsg.steps.push({ ...step })
+          }
+          if (!isUnmounted) persistMessages()
+        },
+        onSources: (payload) => {
+          lastDataAt = Date.now()
+          assistantMsg.sources = payload?.items || []
+        },
         onDelta: (t) => { lastDataAt = Date.now(); assistantMsg.content += t; scrollToBottom() },
         onError: (msg) => { if (!assistantMsg.content) assistantMsg.content = `请求失败：${msg}` }
       },
@@ -337,14 +320,15 @@ async function send(text) {
     try {
       const data = await agentApi.chat({ message: content, history })
       assistantMsg.content = data?.answer || '（无回复）'
-      assistantMsg.toolResult = data?.tool_result || null
+      assistantMsg.steps = data?.steps || []
+      assistantMsg.sources = data?.sources || []
     } catch {
       assistantMsg.content = '请求失败，请稍后重试'
     }
   } finally {
     clearInterval(idleTimer)
     loading.value = false
-    if (!assistantMsg.content && !assistantMsg.toolResult) assistantMsg.content = '（无回复）'
+    if (!assistantMsg.content && !assistantMsg.steps.length) assistantMsg.content = '（无回复）'
     persistMessages()
     scrollToBottom()
   }
@@ -392,7 +376,9 @@ function exportChat() {
   const lines = messages.value.map((m) => {
     const role = m.role === 'user' ? '我' : '助手'
     let text = `## ${role}\n\n${m.content}`
-    if (m.toolResult?.data?.length) text += `\n\n> 工具结果：${m.toolResult.name}`
+    const used = (m.steps || []).filter((s) => s.status === 'done').map((s) => toolMeta(s.tool).label)
+    if (used.length) text += `\n\n> 已调用：${used.join('、')}`
+    if (m.sources?.length) text += `\n\n> 参考资料：${m.sources.map((s) => s.title).join('、')}`
     return text
   })
   const blob = new Blob([lines.join('\n\n---\n\n')], { type: 'text/markdown;charset=utf-8' })
@@ -414,7 +400,8 @@ async function loadSuggestions() {
     const projects = await projectApi.my()
     if (projects?.length) list.push('我的项目进展如何')
   } catch { /* ignore */ }
-  list.push('总结本周工作安排', '介绍一下这个平台')
+  // Add knowledge base suggestion
+  list.push('搜索知识库', '总结本周工作安排', '介绍一下这个平台')
   suggestions.value = list.slice(0, 3)
 }
 
@@ -431,37 +418,10 @@ function scrollToBottom() {
   })
 }
 
-function fmtDate(t) {
-  return t ? dayjs(t).format('M月D日') : ''
-}
-function fmtTime(t) {
-  return t ? dayjs(t).format('HH:mm') : ''
-}
-
-function meetingStatusClass(s) {
-  if (s === 2) return 'live'
-  if (s === 1) return 'upcoming'
-  if (s === 3) return 'done'
-  return 'cancelled'
-}
-function meetingStatusLabel(s) {
-  return ['已取消', '即将开始', '进行中', '已结束'][s] || '未知'
-}
-function projectStatusClass(s) {
-  if (s === 1) return 'upcoming'
-  if (s === 2) return 'done'
-  return 'draft'
-}
-function projectStatusLabel(s) {
-  return ['草稿', '进行中', '已完成', '已延期'][s] || '未知'
-}
-function taskStatusClass(s) {
-  if (s === 1) return 'upcoming'
-  if (s === 2) return 'done'
-  return 'draft'
-}
-function taskStatusLabel(s) {
-  return ['待开始', '进行中', '已完成'][s] || '未知'
+function normalizeMessage(m) {
+  // 兼容旧版本地记录：过去存的是单个 toolResult，现在统一成 steps 数组
+  const steps = m.steps || (m.toolResult ? [{ tool: m.toolResult.name, status: 'done', summary: '' }] : [])
+  return { role: m.role, content: m.content, steps, sources: m.sources || [], feedback: m.feedback || null }
 }
 
 watch(messages, persistMessages, { deep: true })
@@ -472,9 +432,9 @@ onMounted(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const saved = JSON.parse(raw)
-      messages.value = saved.filter(
-        (m) => m.role === 'user' || (m.role === 'assistant' && m.content)
-      )
+      messages.value = saved
+        .filter((m) => m.role === 'user' || (m.role === 'assistant' && m.content))
+        .map(normalizeMessage)
     }
   } catch { /* ignore */ }
   if (!userStore.userInfo) userStore.fetchMe().catch(() => {})
@@ -934,121 +894,105 @@ onUnmounted(() => {
   transform: translateX(-50%) translateY(0);
 }
 
-/* ---- Tool result cards ---- */
+/* ---- Tool timeline ---- */
 .agent-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 14px;
 }
-.agent-tool-label {
+.agent-step {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-500);
-  margin-bottom: 10px;
-}
-.agent-tool-label :deep(.el-icon) {
-  color: var(--brand-600);
-}
-.agent-tool:not(:has(.agent-meeting-time)):not(:has(.agent-progress)) .agent-tool-label :deep(.el-icon) {
-  color: var(--ink-400);
-}
-.agent-cards {
-  display: flex;
-  flex-direction: column;
   gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-500);
+  animation: agent-step-in var(--dur-fast) var(--ease-out);
 }
-.agent-meeting {
-  display: flex;
+.agent-step-dot {
+  display: inline-flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
-  background: var(--bg-card);
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: var(--ink-50);
+  color: var(--ink-400);
+  flex-shrink: 0;
+}
+.agent-step.is-running .agent-step-dot {
+  background: var(--brand-50);
+}
+.agent-step-label {
+  font-weight: 500;
+  color: var(--ink-700);
+}
+.agent-step.is-running .agent-step-label {
+  color: var(--ink-500);
+}
+.agent-step-summary {
+  color: var(--ink-400);
+}
+.agent-step-summary::before {
+  content: "·";
+  margin-right: 6px;
+}
+.agent-step-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-600);
+  animation: agent-pulse 1.1s ease-in-out infinite;
+}
+@keyframes agent-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@keyframes agent-step-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Knowledge sources ---- */
+.agent-sources {
+  margin-top: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border-default);
-  border-radius: 12px;
-  transition: all var(--dur-fast) var(--ease-out);
-}
-.agent-meeting:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
-}
-.agent-meeting-time {
+  border-radius: 10px;
+  background: var(--bg-card);
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  min-width: 108px;
-  flex-shrink: 0;
-  background: var(--ink-50);
-  border-radius: 8px;
-  padding: 6px 10px;
+  gap: 6px;
 }
-.agent-meeting-date {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink-800);
-}
-.agent-meeting-clock {
+.agent-sources-label {
   font-size: 11.5px;
+  font-weight: 600;
   color: var(--ink-400);
+  letter-spacing: 0.02em;
+}
+.agent-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-700);
+}
+.agent-source-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--ink-50);
+  color: var(--ink-400);
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
-.agent-meeting-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.agent-meeting-title {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--ink-900);
+.agent-source-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.agent-meeting-meta {
-  font-size: 12px;
-  color: var(--ink-400);
-}
-.agent-meeting-status {
-  font-size: 11.5px;
-  font-weight: 500;
-  padding: 2px 9px;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-.agent-meeting-status.upcoming {
-  background: var(--brand-50);
-  color: var(--brand-700);
-}
-.agent-meeting-status.live {
-  background: var(--success-bg);
-  color: var(--success);
-}
-.agent-meeting-status.done {
-  background: var(--ink-100);
-  color: var(--ink-500);
-}
-.agent-meeting-status.cancelled,
-.agent-meeting-status.draft {
-  background: var(--ink-50);
-  color: var(--ink-400);
-}
-.agent-progress {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--brand-700);
-  background: var(--brand-50);
-  border-radius: 999px;
-  padding: 2px 9px;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-.agent-cards-empty {
-  font-size: 13px;
-  color: var(--ink-400);
-  padding: 8px 0;
 }
 
 /* ---- Typing ---- */

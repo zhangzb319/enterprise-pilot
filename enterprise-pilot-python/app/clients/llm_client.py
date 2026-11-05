@@ -40,6 +40,23 @@ class LlmClient:
                     if delta:
                         yield delta
 
+    async def chat_with_tools(self, messages: list[dict], tools: list[dict], temperature: float = 0.2) -> tuple[dict, dict]:
+        """带工具的非流式调用,返回 (message, usage)。
+
+        必须走非流式:实测 GLM 在 stream=True 时会忽略 tools,直接返回正文,
+        因此"边流式边调工具"不可行,决策与作答必须分成两次调用。
+        """
+        settings = get_settings()
+        if not settings.zhipu_api_key:
+            raise AppError("ZHIPU_API_KEY is not configured", 503)
+        payload = {"model": settings.zhipu_chat_model, "messages": messages, "temperature": temperature, "tools": tools, "tool_choice": "auto"}
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(f"{settings.zhipu_base_url.rstrip('/')}/chat/completions", headers={"Authorization": f"Bearer {settings.zhipu_api_key}"}, json=payload)
+        if response.is_error:
+            raise AppError(f"LLM request failed: {response.text}", 502)
+        body = response.json()
+        return body["choices"][0]["message"], body.get("usage") or {}
+
     async def embeddings(self, texts: list[str]) -> list[list[float]]:
         settings = get_settings()
         if not settings.zhipu_api_key:

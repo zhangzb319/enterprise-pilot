@@ -171,6 +171,10 @@ create table qa_log(
     question text not null,
     answer text,
     referenced_docs json comment '引用的文档ID列表',
+    tools json comment '本次调用过的工具名列表',
+    latency_ms int comment '整轮对话耗时(毫秒)',
+    prompt_tokens int comment '输入 token 数',
+    completion_tokens int comment '输出 token 数',
     created_at datetime default current_timestamp,
     index idx_user_id (user_id),
     constraint fk_qalog_user foreign key (user_id) references sys_user(id)

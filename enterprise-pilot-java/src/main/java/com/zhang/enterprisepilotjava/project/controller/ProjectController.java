@@ -36,6 +36,14 @@ public class ProjectController {
         return Result.success(projectService.getMyProjects());
     }
 
+    /**
+     * 我可见项目下的全部任务,单次查询返回。AI 助手与工作台共用,替代按项目逐个拉取。
+     */
+    @GetMapping("/tasks/my")
+    public Result<List<ProjectTaskVO>> myTasks() {
+        return Result.success(projectTaskService.getMyTasks());
+    }
+
     @PostMapping("/{projectId}/tasks")
     public Result<Void> createTask(@PathVariable Long projectId, @RequestBody @Valid ProjectTaskCreateDTO dto) {
         projectTaskService.createTask(projectId, dto);
