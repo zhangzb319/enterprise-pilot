@@ -38,12 +38,13 @@ export const projectApi = {
 }
 
 export const ragApi = {
-  ingest: (data) => request.post('/ai/api/v1/rag/documents', data),
-  ask: (data) => request.post('/ai/api/v1/rag/ask', data),
-  list: () => request.get('/ai/api/v1/rag/documents'),
-  get: (id) => request.get(`/ai/api/v1/rag/documents/${encodeURIComponent(id)}`),
-  remove: (id) => request.delete(`/ai/api/v1/rag/documents/${encodeURIComponent(id)}`),
-  categories: () => request.get('/ai/api/v1/rag/categories')
+  // RAG 服务在 Python 侧(/py 代理),Agent 在 Node 侧(/ai 代理)
+  ingest: (data) => request.post('/py/api/v1/rag/documents', data),
+  ask: (data) => request.post('/py/api/v1/rag/ask', data),
+  list: () => request.get('/py/api/v1/rag/documents'),
+  get: (id) => request.get(`/py/api/v1/rag/documents/${encodeURIComponent(id)}`),
+  remove: (id) => request.delete(`/py/api/v1/rag/documents/${encodeURIComponent(id)}`),
+  categories: () => request.get('/py/api/v1/rag/categories')
 }
 
 export const agentApi = {

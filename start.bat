@@ -46,7 +46,7 @@ REM ============================================================
 :do_stop
 echo.
 echo Stopping Enterprise Pilot services...
-for %%p in (6379 8080 8001 5173) do (
+for %%p in (6379 8080 8001 8002 5173) do (
     for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":%%p " ^| findstr "LISTENING"') do (
         taskkill /pid %%a /f >nul 2>&1
         echo   Stopped process on port %%p PID %%a
@@ -168,7 +168,7 @@ if errorlevel 1 (
 REM --- Stop existing processes ---
 echo.
 echo Cleaning up existing processes...
-for %%p in (8080 8001 5173) do (
+for %%p in (8080 8001 8002 5173) do (
     for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":%%p " ^| findstr "LISTENING"') do (
         taskkill /pid %%a /f >nul 2>&1
     )
@@ -224,9 +224,17 @@ echo.
 echo Starting Java backend on port 8080...
 powershell -NoProfile -Command "Start-Process -FilePath '%MVN_CMD%' -ArgumentList 'spring-boot:run' -WorkingDirectory '%JAVA_DIR%' -WindowStyle Minimized -RedirectStandardOutput '%LOG_DIR%\java.out.log' -RedirectStandardError '%LOG_DIR%\java.err.log'"
 
-REM --- Start Python AI service ---
+REM --- Start Python AI service (RAG/文档处理) ---
 echo Starting Python AI service on port 8001...
 powershell -NoProfile -Command "Start-Process -FilePath '%VENV_PY%' -ArgumentList '-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8001' -WorkingDirectory '%PYTHON_DIR%' -WindowStyle Minimized -RedirectStandardOutput '%LOG_DIR%\python.out.log' -RedirectStandardError '%LOG_DIR%\python.err.log'"
+
+REM --- Start Node Agent service ---
+echo Starting Node Agent service on port 8002...
+if not exist "%ROOT%\enterprise-pilot-node\.env" (
+    echo [WARN] enterprise-pilot-node\.env missing, copying from template
+    copy /Y "%ROOT%\enterprise-pilot-node\.env.example" "%ROOT%\enterprise-pilot-node\.env" >nul
+)
+powershell -NoProfile -Command "Start-Process -FilePath '%NODE_DIR%\node.exe' -ArgumentList '--env-file','.env','--import','tsx','src/main.ts' -WorkingDirectory '%ROOT%\enterprise-pilot-node' -WindowStyle Minimized -RedirectStandardOutput '%LOG_DIR%\node.out.log' -RedirectStandardError '%LOG_DIR%\node.err.log'"
 
 REM --- Start frontend ---
 echo Starting frontend dev server on port 5173...
@@ -240,7 +248,7 @@ REM --- Wait for services ---
 echo.
 echo Waiting for services, first run may take a few minutes for Maven...
 
-echo   [1/4] Waiting for Redis...
+echo   [1/5] Waiting for Redis...
 call :wait_port 127.0.0.1 6379 10
 if errorlevel 1 (
     echo [WARN] Redis did not become ready in time
@@ -248,7 +256,7 @@ if errorlevel 1 (
     echo   [OK] Redis ready
 )
 
-echo   [2/4] Waiting for Java backend...
+echo   [2/5] Waiting for Java backend...
 call :wait_port 127.0.0.1 8080 300
 if errorlevel 1 (
     echo [WARN] Java backend did not become ready in time
@@ -257,7 +265,7 @@ if errorlevel 1 (
     echo   [OK] Java backend ready
 )
 
-echo   [3/4] Waiting for Python AI service...
+echo   [3/5] Waiting for Python AI service...
 call :wait_http "http://127.0.0.1:8001/health" 120
 if errorlevel 1 (
     echo [WARN] Python AI service did not become ready in time
@@ -266,7 +274,17 @@ if errorlevel 1 (
     echo   [OK] Python AI service ready
 )
 
-echo   [4/4] Waiting for frontend...
+echo   [4/5] Waiting for Node Agent service...
+call :wait_http "http://127.0.0.1:8002/health" 60
+if errorlevel 1 (
+    echo [WARN] Node Agent service did not become ready in time
+    call :show_log_tail "%LOG_DIR%
+ode.err.log"
+) else (
+    echo   [OK] Node Agent service ready
+)
+
+echo   [5/5] Waiting for frontend...
 call :wait_http "%WEB_URL%" 120
 if errorlevel 1 (
     echo [WARN] Frontend did not become ready in time
@@ -284,7 +302,8 @@ echo   Enterprise Pilot is running!
 echo ========================================
 echo   Frontend : %WEB_URL%
 echo   Java API : http://127.0.0.1:8080
-echo   AI API   : http://127.0.0.1:8001/docs
+echo   AI Agent : http://127.0.0.1:8002 (Node)
+echo   RAG API  : http://127.0.0.1:8001/docs (Python)
 echo   Logs     : %LOG_DIR%
 echo.
 echo Run start.bat stop to shut down all services

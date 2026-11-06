@@ -50,5 +50,3 @@ class JavaClient:
     async def directory(self, authorization: str | None) -> list[dict]:
         return await self._get("/api/users/directory", authorization)
 
-    async def log_qa(self, payload: dict, authorization: str | None) -> None:
-        await self._post("/api/agent/log", payload, authorization)

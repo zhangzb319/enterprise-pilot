@@ -35,7 +35,7 @@
 | 项目 | GET | /projects/{projectId}/tasks | 项目任务列表 |
 | 项目 | POST | /projects/{projectId}/discussions | 创建讨论 |
 | 项目 | GET | /projects/{projectId}/discussion/tree | 讨论树 |
-| AI 助手 | POST | /agent/log | 上报问答日志,写入 `qa_log`(由 Python 服务调用) |
+| AI 助手 | POST | /agent/log | 上报问答日志,写入 `qa_log`(由 Node 服务调用) |
 | 消息 | GET | /messages/conversations | 会话列表 |
 | 消息 | GET | /messages/with/{userId} | 与某人的聊天记录 |
 | 消息 | POST | /messages/send | 发送消息 |
@@ -59,12 +59,19 @@
 | 知识库 | DELETE | /api/v1/rag/documents/{document_id} | 删除文档 |
 | 知识库 | GET | /api/v1/rag/categories | 分类列表 |
 | 知识库 | POST | /api/v1/rag/ask | 基于知识库问答 |
-| AI 助手 | POST | /api/v1/agent/chat | 对话 |
-| AI 助手 | POST | /api/v1/agent/chat/stream | 流式对话(SSE) |
+| 知识库 | POST | /api/v1/rag/retrieve | 仅检索不生成(供 Node Agent 的 search_knowledge 工具调用) |
 | 会议 | POST | /api/v1/meetings/summary | 会议纪要生成 |
 | 会议 | POST | /api/v1/meetings/transcript | 会议转写 |
 
 Swagger UI:启动后访问 <http://localhost:8001/docs>。
+
+### Node Agent 服务(:8002,`enterprise-pilot-node`)
+
+| 模块 | 方法 | 路径 | 说明 |
+|------|------|------|------|
+| AI 助手 | POST | /api/v1/agent/chat | 对话(非流式兜底) |
+| AI 助手 | POST | /api/v1/agent/chat/stream | 流式对话(SSE) |
+| 健康检查 | GET | /health | 服务健康状态 |
 
 **AI 助手 SSE 事件协议**(`/api/v1/agent/chat/stream`)
 
@@ -76,7 +83,7 @@ Swagger UI:启动后访问 <http://localhost:8001/docs>。
 | `done` | `{}` | 流结束 |
 | `error` | `{"message"}` | 失败原因 |
 
-**Agent 工具清单**(`enterprise-pilot-python/app/agent/tools/`)
+**Agent 工具清单**(`enterprise-pilot-node/src/agent/tools/`)
 
 | 工具 | 数据来源 |
 |------|----------|

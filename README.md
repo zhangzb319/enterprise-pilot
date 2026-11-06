@@ -7,21 +7,32 @@
 ## 架构
 
 ```
-+------------------+        +------------------+        +------------------+
-|  enterprise-     |  HTTP  |  enterprise-     |  HTTP  |  enterprise-     |
-|  pilot-web       | -----> |  pilot-java      | -----> |  pilot-python    |
-|  Vue 3 + Vite    |  :5173 |  Spring Boot 4   |  :8080 |  FastAPI         |
-|  Element Plus    |        |PostgreSQL + Redis|        |  Chroma + 智谱   |
-+------------------+        +------------------+        +------------------+
++------------------+  /api  +------------------+          +------------------+
+|  enterprise-     | -----> |  enterprise-     |          |  enterprise-     |
+|  pilot-web       |  /py   |  pilot-java      |          |  pilot-python    |
+|  Vue 3 + Vite    | -----> |  Spring Boot 4   |          |  FastAPI         |
+|  Element Plus    |  :5173 |  :8080           |          |  RAG/文档:8001   |
+|                  |        |PostgreSQL + Redis|          |  Chroma + 智谱   |
++--------+---------+        +--------+---------+          +--------+---------+
+         |                           ^       ^                   ^
+         | /ai (代理到 8002)          |       |  带 JWT 回调取数    | 检索
+         v                           |       |                   |
++------------------+                 |       +-------------------+
+|  enterprise-     |   带 JWT 回调 ----+       (search_knowledge 工具
+|  pilot-node      |   Java 取数              走 /rag/retrieve)
+|  Agent(TS):8002  |
+|  Fastify + tsx   |
++------------------+
 ```
 
-前端开发服务器通过 Vite 代理把 `/api` 转发到 Java 后端、`/ai` 转发到 Python 服务,浏览器侧无需处理跨域。
+前端开发服务器通过 Vite 代理把 `/api` 转发到 Java 后端、`/ai` 转发到 Node Agent 服务、`/py` 转发到 Python RAG 服务,浏览器侧无需处理跨域。
 
 - **Web 前端**(:5173):Vue 3 单页应用,负责页面渲染与用户交互
 - **Java 后端**(:8080):Spring Boot 业务服务,负责认证授权、业务逻辑与数据持久化
-- **Python AI 服务**(:8001):FastAPI 智能服务,负责知识库向量检索、AI 对话与会议纪要
+- **Node Agent 服务**(:8002):Fastify + TypeScript,负责 AI 助手的工具循环与流式作答;带用户 JWT 回调 Java 取数、调 Python 检索知识库
+- **Python AI 服务**(:8001):FastAPI,专注 RAG 上游文档处理(上传/分块/embedding/向量检索)
 
-> Java 与 Python 是**平级**的两个服务,前端分别调用。Java 并不反向调用 Python,只有 Python 在处理"我的会议/项目/任务"类问题时,会带着用户的 JWT 回调 Java 取数。
+> 四个服务平级。Java 不反向调用任何服务;Node Agent 在执行工具时带着用户 JWT 回调 Java 取数(权限判断全在 Java 侧),知识库检索则转发给 Python。Python 只做 RAG 上游,不再包含 Agent 循环。
 
 ---
 
@@ -30,11 +41,12 @@
 | 模块 | 技术 | 版本 |
 |------|------|------|
 | 后端 | Java + Spring Boot + MyBatis-Plus | 17 / 4.0.7 / 3.5.15 |
+| Agent 服务 | Node + Fastify + TypeScript | 18+ / 24 |
 | AI 服务 | Python + FastAPI + ChromaDB | 3.11+ |
 | 前端 | Vue 3 + Vite + Element Plus + Pinia | 3.5 / 6.0 / 2.9 / 2.3 |
 | 数据库 | PostgreSQL | 14+ |
 | 缓存 | Redis | 7.x |
-| LLM | 智谱 GLM(`glm-4-flash` + `embedding-2`) | — |
+| LLM | APInex `free/hy4`(Agent)+ 智谱 `embedding-2`(RAG) | — |
 
 ---
 
@@ -134,13 +146,18 @@ enterprise-pilot/
 │       └── notification/      # 通知
 ├── enterprise-pilot-python/   # FastAPI AI 服务
 │   └── app/
-│       ├── agent/             # Agent 骨架:registry(工具注册表)、loop(两段式循环)、tools(6 个工具)
-│       ├── api/v1/            # 路由:rag、agent、meeting
+│       ├── api/v1/            # 路由:rag、meeting
 │       ├── services/          # rag_service、agent_service、meeting_service
 │       ├── clients/           # llm_client(智谱)、java_client(回调 Java)、asr_client
 │       ├── vector_store/      # chroma_client 向量库封装
 │       ├── schemas/           # Pydantic 出入参
 │       └── core/              # 配置、日志、异常
+├── enterprise-pilot-node/     # Node Agent 服务(Fastify + TS)
+│   └── src/
+│       ├── agent/             # registry(工具注册表)、loop(两段式循环)、tools(6 个工具)
+│       ├── clients/           # llmClient(APInex/智谱)、javaClient(回调 Java)、ragClient(调 Python)
+│       ├── routes/            # SSE 流式对话路由
+│       └── services/          # agent_service(qa_log 审计上报)
 ├── enterprise-pilot-web/      # Vue 3 前端
 │   └── src/
 │       ├── views/             # 10 个页面:登录、工作台、项目、会议、知识库、
@@ -166,7 +183,8 @@ enterprise-pilot/
 |------|------|------|
 | Web 前端 | 5173 | Vite 开发服务器 |
 | Java 后端 | 8080 | REST API,前缀 `/api`,受 JWT 保护 |
-| Python AI 服务 | 8001 | 前缀 `/api/v1`,自带 Swagger UI(`/docs`) |
+| Node Agent 服务 | 8002 | 前缀 `/api/v1`,Agent 对话(SSE) |
+| Python AI 服务 | 8001 | 前缀 `/api/v1`,RAG 文档管理,自带 Swagger UI(`/docs`) |
 | PostgreSQL | 5432 | 数据库 `enterprise-pilot`(Docker 容器 `my-postgres`) |
 | Redis | 6379 | 缓存(项目成员、我的项目列表、JWT 黑名单) |
 
@@ -186,7 +204,7 @@ enterprise-pilot/
 | 会议预订 | ✅ 可用 | 会议室管理 + 预订 / 取消 / 我的预订 |
 | 通知 / 消息 | ✅ 可用 | 前端轮询获取 |
 | 知识库 RAG | ⚠️ 独立可用 | 上传 → 分块(800 字 / 120 重叠)→ 向量化 → 检索 → 基于上下文作答。`/rag/ask` 可正常调用。**检索依赖智谱 embedding 额度,额度不足时返回 1113 错误** |
-| AI 助手 | ✅ 可用 | 基于 GLM 原生 function calling 的工具化 Agent:6 个工具(知识库检索、会议、会议室、项目、任务、通讯录)由模型自主选择,支持并行调用与流式作答。详见 `enterprise-pilot-python/app/agent/` |
+| AI 助手 | ✅ 可用 | TypeScript Agent(见 `enterprise-pilot-node/`):6 个工具(知识库检索、会议、会议室、项目、任务、通讯录)由模型自主选择,支持并行调用与流式作答;LLM 走 APInex `free/hy4` |
 | 会议纪要(ASR) | ❌ 未闭环 | `meeting_summary.process_status` 无代码写入,`/meetings/summary` 与 `/transcript` 是孤立端点,预约成功后不会自动触发 |
 | 考勤 | ❌ 空壳 | `attendance_record` 表存在,但无 Java 包、无接口、无前端页面 |
 | Docker 部署 | ❌ 不可用 | 三个 Dockerfile 缺失,见上文 |

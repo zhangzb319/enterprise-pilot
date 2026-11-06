@@ -43,3 +43,8 @@ class DocumentDetail(BaseModel):
     category: str | None = None
     created_at: str | None = None
     chunks: list[ChunkItem]
+
+
+class RetrieveRequest(BaseModel):
+    question: str = Field(min_length=1)
+    top_k: int = Field(default=4, ge=1, le=10)
