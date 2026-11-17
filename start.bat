@@ -142,7 +142,20 @@ echo [OK] Environment variables check passed
 REM --- Check PostgreSQL / Redis ---
 call :check_port 127.0.0.1 5432
 if errorlevel 1 (
-    echo [WARN] PostgreSQL ^(5432^) not reachable, Java backend may fail to start
+    echo [ERROR] PostgreSQL ^(5432^) not reachable.
+    echo.
+    echo   Java backend would start but every database call returns 500,
+    echo   so the UI only shows "system internal error". Refusing to start.
+    echo.
+    echo   Start PostgreSQL first, then re-run start.bat:
+    echo.
+    echo     1^) Start Docker Desktop, then start the container:
+    echo          docker start my-postgres
+    echo.
+    echo     2^) Or start a local PostgreSQL ^(port 5432^) and make sure
+    echo        enterprise-pilot-java\.env points at it ^(DB_URL^).
+    echo.
+    goto :fail
 ) else (
     echo [OK] PostgreSQL ^(5432^) reachable
 )
@@ -510,9 +523,16 @@ echo.
 echo ========================================
 echo   Startup Failed
 echo ========================================
-echo First-time setup: edit placeholders in:
-echo   enterprise-pilot-java\.env
-echo   enterprise-pilot-python\.env
+echo Fix the problem reported above, then re-run start.bat.
+echo.
+echo Common causes:
+echo   - Missing or placeholder values in:
+echo       enterprise-pilot-java\.env
+echo       enterprise-pilot-python\.env
+echo       enterprise-pilot-node\.env
+echo   - PostgreSQL ^(5432^) not running: start Docker Desktop and run
+echo       docker start my-postgres
+echo   - Java / Maven / Node / Python not installed or not on PATH
 echo.
 pause
 exit /b 1

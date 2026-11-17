@@ -1,155 +1,184 @@
 <template>
   <div class="agent">
-    <!-- ======== Top toolbar ======== -->
-    <div class="agent-hd">
-      <div class="agent-hd-left">
-        <div class="agent-brand">
-          <Sparkles :size="16" :stroke-width="1.8" />
+    <!-- ======== 左侧：对话列表 ======== -->
+    <div class="agent-sidebar">
+      <button class="agent-new-btn" title="新建对话" @click="newConversation">
+        <Plus size="14" />
+        <span>新建对话</span>
+      </button>
+      <div class="agent-list">
+        <div
+          v-for="conv in sortedConversations"
+          :key="conv.id"
+          class="agent-item"
+          :class="{ active: conv.id === currentId }"
+          @click="switchConversation(conv.id)"
+        >
+          <div class="agent-item-info">
+            <div class="agent-item-title" title="{{ conv.title }}">{{ conv.title }}</div>
+            <div class="agent-item-time">{{ formatTime(conv.updatedAt) }}</div>
+          </div>
+          <button class="agent-item-del" title="删除" @click.stop="deleteConversation(conv.id)">
+            <Delete size="12" />
+          </button>
         </div>
-        <div class="agent-hd-titles">
-          <span class="agent-name">企业智能助手</span>
-          <span class="agent-sub">知识库 · 会议 · 项目 · 任务</span>
-        </div>
-      </div>
-      <div class="agent-hd-actions">
-        <button class="agent-hd-btn" title="导出对话" @click="exportChat">
-          <el-icon :size="13"><Download /></el-icon>
-          导出
-        </button>
-        <button class="agent-hd-btn agent-hd-btn-danger" title="清空对话" @click="clearChat">
-          <el-icon :size="13"><Delete /></el-icon>
-          清空对话
-        </button>
+        <div v-if="conversations.length === 0" class="agent-empty">暂无对话</div>
       </div>
     </div>
 
-    <!-- ======== Message area ======== -->
-    <div ref="chatBody" class="agent-body">
-      <div class="agent-column">
-        <!-- Empty state -->
-        <div v-if="messages.length === 0" class="agent-hero">
-          <div class="agent-hero-mark">
-            <Sparkles :size="26" :stroke-width="1.6" />
-          </div>
-          <div class="agent-hero-title">{{ greeting }}{{ displayName ? '，' + displayName : '' }}</div>
-          <p class="agent-hero-sub">我可以帮你检索知识库、查询会议安排、跟进项目与任务，有什么可以帮您？</p>
-          <div class="agent-suggestions">
-            <div v-for="s in suggestions" :key="s" class="agent-suggestion" @click="send(s)">
-              <span class="agent-suggestion-icon">
-                <component :is="suggestionIcon(s)" :size="15" />
-              </span>
-              <span class="agent-suggestion-text">{{ s }}</span>
-              <span class="agent-suggestion-arrow">→</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Messages -->
-        <div
-          v-for="(m, i) in messages"
-          :key="i"
-          class="agent-msg"
-          :class="m.role === 'user' ? 'agent-msg-user' : 'agent-msg-assistant'"
-        >
-          <div v-if="m.role === 'assistant'" class="agent-msg-avatar">
-            <Sparkles :size="15" :stroke-width="1.8" />
-          </div>
-
-          <div class="agent-msg-main">
-            <div v-if="m.role === 'assistant'" class="agent-msg-role">智能助手</div>
-            <div class="agent-msg-content">
-              <div v-if="m.role === 'user'" class="agent-msg-user-bubble">{{ m.content }}</div>
-              <div v-else class="agent-msg-rich">
-                <span v-if="m.content" v-html="renderRich(m.content)"></span>
-                <span v-else-if="loading && i === messages.length - 1" class="agent-msg-thinking">正在思考...</span>
-              </div>
-
-              <div v-if="m.role === 'assistant' && m.content" class="agent-msg-actions">
-                <button class="agent-action" title="复制" @click="copy(m.content)">
-                  <el-icon :size="13"><CopyDocument /></el-icon>
-                </button>
-                <button class="agent-action" title="重新生成" @click="retry(i)">
-                  <el-icon :size="13"><Refresh /></el-icon>
-                </button>
-                <button
-                  class="agent-action"
-                  :class="{ active: m.feedback === 'up' }"
-                  title="有帮助"
-                  @click="setFeedback(m, 'up')"
-                >
-                  <ThumbsUp :size="13" />
-                </button>
-                <button
-                  class="agent-action"
-                  :class="{ active: m.feedback === 'down' }"
-                  title="没帮助"
-                  @click="setFeedback(m, 'down')"
-                >
-                  <ThumbsDown :size="13" />
-                </button>
-              </div>
-
-              <div v-if="m.steps && m.steps.length" class="agent-tool">
-                <div
-                  v-for="(s, si) in m.steps"
-                  :key="si"
-                  class="agent-step"
-                  :class="{ 'is-running': s.status === 'running' }"
-                >
-                  <span class="agent-step-dot">
-                    <span v-if="s.status === 'running'" class="agent-step-pulse"></span>
-                    <el-icon v-else :size="12"><component :is="toolMeta(s.tool).icon" /></el-icon>
-                  </span>
-                  <span class="agent-step-label">{{ toolMeta(s.tool).label }}</span>
-                  <span v-if="s.summary" class="agent-step-summary">{{ s.summary }}</span>
-                </div>
-              </div>
-
-              <div v-if="m.sources && m.sources.length" class="agent-sources">
-                <div class="agent-sources-label">参考资料</div>
-                <div v-for="(src, si) in m.sources" :key="src.document_id" class="agent-source">
-                  <span class="agent-source-index">{{ si + 1 }}</span>
-                  <span class="agent-source-title">{{ src.title }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Typing indicator -->
-        <div v-if="loading" class="agent-msg agent-msg-assistant">
-          <div class="agent-msg-avatar">
+    <!-- ======== 右侧：聊天区 ======== -->
+    <div class="agent-panel">
+      <!-- ======== Top toolbar ======== -->
+      <div class="agent-hd">
+        <div class="agent-hd-left">
+          <div class="agent-brand">
             <Sparkles :size="16" :stroke-width="1.8" />
           </div>
-          <div class="agent-msg-main">
-            <div class="agent-msg-role">助手</div>
-            <div class="agent-typing"><span></span><span></span><span></span></div>
+          <div class="agent-hd-titles">
+            <span class="agent-name">{{ currentTitle }}</span>
+            <span class="agent-sub">知识库 · 会议 · 项目 · 任务</span>
+          </div>
+        </div>
+        <div class="agent-hd-actions">
+          <button class="agent-hd-btn" title="导出对话" @click="exportChat">
+            <el-icon :size="13"><Download /></el-icon>
+            导出
+          </button>
+          <button class="agent-hd-btn agent-hd-btn-danger" title="清空对话" @click="clearChat">
+            <el-icon :size="13"><Delete /></el-icon>
+            清空
+          </button>
+        </div>
+      </div>
+
+      <!-- ======== Message area ======== -->
+      <div ref="chatBody" class="agent-body">
+        <div class="agent-column">
+          <!-- Empty state -->
+          <div v-if="messages.length === 0" class="agent-hero">
+            <div class="agent-hero-mark">
+              <Sparkles :size="26" :stroke-width="1.6" />
+            </div>
+            <div class="agent-hero-title">{{ greeting }}{{ displayName ? '，' + displayName : '' }}</div>
+            <p class="agent-hero-sub">我可以帮你检索知识库、查询会议安排、跟进项目与任务，有什么可以帮您？</p>
+            <div class="agent-suggestions">
+              <div v-for="s in suggestions" :key="s" class="agent-suggestion" @click="send(s)">
+                <span class="agent-suggestion-icon">
+                  <component :is="suggestionIcon(s)" :size="15" />
+                </span>
+                <span class="agent-suggestion-text">{{ s }}</span>
+                <span class="agent-suggestion-arrow">→</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Messages -->
+          <div
+            v-for="(m, i) in messages"
+            :key="i"
+            class="agent-msg"
+            :class="m.role === 'user' ? 'agent-msg-user' : 'agent-msg-assistant'"
+          >
+            <div v-if="m.role === 'assistant'" class="agent-msg-avatar">
+              <Sparkles :size="15" :stroke-width="1.8" />
+            </div>
+
+            <div class="agent-msg-main">
+              <div v-if="m.role === 'assistant'" class="agent-msg-role">智能助手</div>
+              <div class="agent-msg-content">
+                <div v-if="m.role === 'user'" class="agent-msg-user-bubble">{{ m.content }}</div>
+                <div v-else class="agent-msg-rich">
+                  <span v-if="m.content" v-html="renderRich(m.content)"></span>
+                  <span v-else-if="loading && i === messages.length - 1" class="agent-msg-thinking">正在思考...</span>
+                </div>
+
+                <div v-if="m.role === 'assistant' && m.content" class="agent-msg-actions">
+                  <button class="agent-action" title="复制" @click="copy(m.content)">
+                    <el-icon :size="13"><CopyDocument /></el-icon>
+                  </button>
+                  <button class="agent-action" title="重新生成" @click="retry(i)">
+                    <el-icon :size="13"><Refresh /></el-icon>
+                  </button>
+                  <button
+                    class="agent-action"
+                    :class="{ active: m.feedback === 'up' }"
+                    title="有帮助"
+                    @click="setFeedback(m, 'up')"
+                  >
+                    <ThumbsUp :size="13" />
+                  </button>
+                  <button
+                    class="agent-action"
+                    :class="{ active: m.feedback === 'down' }"
+                    title="没帮助"
+                    @click="setFeedback(m, 'down')"
+                  >
+                    <ThumbsDown :size="13" />
+                  </button>
+                </div>
+
+                <div v-if="m.steps && m.steps.length" class="agent-tool">
+                  <div
+                    v-for="(s, si) in m.steps"
+                    :key="si"
+                    class="agent-step"
+                    :class="{ 'is-running': s.status === 'running' }"
+                  >
+                    <span class="agent-step-dot">
+                      <span v-if="s.status === 'running'" class="agent-step-pulse"></span>
+                      <el-icon v-else :size="12"><component :is="toolMeta(s.tool).icon" /></el-icon>
+                    </span>
+                    <span class="agent-step-label">{{ toolMeta(s.tool).label }}</span>
+                    <span v-if="s.summary" class="agent-step-summary">{{ s.summary }}</span>
+                  </div>
+                </div>
+
+                <div v-if="m.sources && m.sources.length" class="agent-sources">
+                  <div class="agent-sources-label">参考资料</div>
+                  <div v-for="(src, si) in m.sources" :key="src.document_id" class="agent-source">
+                    <span class="agent-source-index">{{ si + 1 }}</span>
+                    <span class="agent-source-title">{{ src.title }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Typing indicator -->
+          <div v-if="loading" class="agent-msg agent-msg-assistant">
+            <div class="agent-msg-avatar">
+              <Sparkles :size="16" :stroke-width="1.8" />
+            </div>
+            <div class="agent-msg-main">
+              <div class="agent-msg-role">助手</div>
+              <div class="agent-typing"><span></span><span></span><span></span></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- ======== Composer ======== -->
-    <div class="agent-composer-wrap">
-      <div class="agent-composer-column">
-        <div class="agent-composer">
-          <el-input
-            v-model="input"
-            type="textarea"
-            :autosize="{ minRows: 1, maxRows: 5 }"
-            placeholder="给智能助手发送消息…"
-            resize="none"
-            @keydown.enter.exact.prevent="send()"
-          />
-          <div class="agent-composer-foot">
-            <span class="agent-hint"><kbd>Enter</kbd> 发送 · <kbd>Shift + Enter</kbd> 换行</span>
-            <button class="agent-send" :disabled="loading || !input.trim()" title="发送" @click="send()">
-              <ArrowUp v-if="!loading" :size="17" :stroke-width="2.2" />
-              <span v-else class="agent-send-loading"></span>
-            </button>
+      <!-- ======== Composer ======== -->
+      <div class="agent-composer-wrap">
+        <div class="agent-composer-column">
+          <div class="agent-composer">
+            <el-input
+              v-model="input"
+              type="textarea"
+              :autosize="{ minRows: 1, maxRows: 5 }"
+              placeholder="给智能助手发送消息…"
+              resize="none"
+              @keydown.enter.exact.prevent="send()"
+            />
+            <div class="agent-composer-foot">
+              <span class="agent-hint"><kbd>Enter</kbd> 发送 · <kbd>Shift + Enter</kbd> 换行</span>
+              <button class="agent-send" :disabled="loading || !input.trim()" title="发送" @click="send()">
+                <ArrowUp v-if="!loading" :size="17" :stroke-width="2.2" />
+                <span v-else class="agent-send-loading"></span>
+              </button>
+            </div>
           </div>
+          <div class="agent-composer-note">内容由 AI 生成，仅供参考</div>
         </div>
-        <div class="agent-composer-note">内容由 AI 生成，仅供参考</div>
       </div>
     </div>
   </div>
@@ -160,44 +189,32 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { agentApi, meetingApi, projectApi } from '@/api'
 import { useUserStore } from '@/stores/user'
+import { useAgentChatStore } from '@/stores/agentChat'
 import {
   Calendar, Delete, CopyDocument, Refresh,
-  Download, FolderOpened, List, ChatDotRound, OfficeBuilding, Reading, User
+  Download, FolderOpened, List, ChatDotRound, OfficeBuilding, Reading, User,
+  Plus
 } from '@element-plus/icons-vue'
 import { Sparkles, ThumbsUp, ThumbsDown, ArrowUp } from 'lucide-vue-next'
 import { renderRich } from '@/utils/markdown'
 import dayjs from 'dayjs'
 
-const STORAGE_KEY = 'enterprise-pilot:agent:messages'
-
 const userStore = useUserStore()
-const messages = ref([])
+const chatStore = useAgentChatStore()
+
+const conversations = computed(() => chatStore.conversations)
+const currentId = computed(() => chatStore.currentId)
+const currentTitle = computed(() => chatStore.current?.title || '新对话')
+const sortedConversations = computed(() =>
+  [...conversations.value].sort((a, b) => Number(a.id === currentId.value) - Number(b.id === currentId.value))
+)
+const messages = computed(() => chatStore.messages)
 const input = ref('')
 const loading = ref(false)
 const chatBody = ref(null)
 const suggestions = ref([])
 let streamAbort = null
 let isUnmounted = false
-
-function persistMessages() {
-  const toSave = messages.value.map((m) => ({
-    role: m.role,
-    content: m.content,
-    steps: m.steps || [],
-    sources: m.sources || [],
-    feedback: m.feedback || null
-  }))
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
-}
-
-const displayName = computed(() => userStore.userInfo?.nickname || userStore.userInfo?.realName || userStore.userInfo?.username || '')
-const greeting = computed(() => {
-  const h = new Date().getHours()
-  if (h < 6) return '夜深了'
-  if (h < 12) return '上午好'
-  if (h < 18) return '下午好'
-  return '晚上好'
-})
 
 const TOOL_META = {
   list_my_bookings: { icon: Calendar, label: '查询会议安排' },
@@ -279,9 +296,11 @@ async function send(text) {
   if (!content || loading.value) return
   input.value = ''
   const history = buildHistory()
-  messages.value.push({ role: 'user', content })
   const assistantMsg = { role: 'assistant', content: '', steps: [], sources: [], feedback: null }
-  messages.value.push(assistantMsg)
+
+  chatStore.appendMessage(currentId.value, { role: 'user', content })
+  chatStore.appendMessage(currentId.value, assistantMsg)
+
   loading.value = true
   scrollToBottom()
   streamAbort = new AbortController()
@@ -295,7 +314,7 @@ async function send(text) {
       {
         onStep: (step) => {
           lastDataAt = Date.now()
-          // 同名工具的 running 事件先到、done 事件后到，按名称配对
+          const assistantMsg = lastAssistantMsg()
           const pending = assistantMsg.steps.find((s) => s.tool === step.tool && s.status === 'running')
           if (step.status === 'done' && pending) {
             pending.status = 'done'
@@ -303,19 +322,32 @@ async function send(text) {
           } else {
             assistantMsg.steps.push({ ...step })
           }
-          if (!isUnmounted) persistMessages()
+          if (!isUnmounted) chatStore.replaceMessages(currentId.value, messages.value)
         },
         onSources: (payload) => {
           lastDataAt = Date.now()
+          const assistantMsg = lastAssistantMsg()
           assistantMsg.sources = payload?.items || []
+          if (!isUnmounted) chatStore.replaceMessages(currentId.value, messages.value)
         },
-        onDelta: (t) => { lastDataAt = Date.now(); assistantMsg.content += t; scrollToBottom() },
-        onError: (msg) => { if (!assistantMsg.content) assistantMsg.content = `请求失败：${msg}` }
+        onDelta: (t) => {
+          lastDataAt = Date.now()
+          const assistantMsg = lastAssistantMsg()
+          assistantMsg.content += t
+          scrollToBottom()
+          if (!isUnmounted) chatStore.replaceMessages(currentId.value, messages.value)
+        },
+        onError: (msg) => {
+          const assistantMsg = lastAssistantMsg()
+          if (!assistantMsg.content) assistantMsg.content = `请求失败：${msg}`
+          if (!isUnmounted) chatStore.replaceMessages(currentId.value, messages.value)
+        }
       },
       streamAbort.signal
     )
   } catch {
     if (isUnmounted) return
+    const assistantMsg = lastAssistantMsg()
     assistantMsg.content = ''
     try {
       const data = await agentApi.chat({ message: content, history })
@@ -328,10 +360,43 @@ async function send(text) {
   } finally {
     clearInterval(idleTimer)
     loading.value = false
+    const assistantMsg = lastAssistantMsg()
     if (!assistantMsg.content && !assistantMsg.steps.length) assistantMsg.content = '（无回复）'
-    persistMessages()
+    if (!isUnmounted) chatStore.replaceMessages(currentId.value, messages.value)
     scrollToBottom()
   }
+}
+
+function lastAssistantMsg() {
+  return messages.value[messages.value.length - 1]
+}
+
+function newConversation() {
+  const conv = chatStore.createConversation('新对话')
+  input.value = ''
+  loading.value = false
+  streamAbort?.abort()
+}
+
+function switchConversation(id) {
+  if (currentId.value === id) return
+  streamAbort?.abort()
+  chatStore.switchConversation(id)
+  input.value = ''
+  loading.value = false
+  scrollToBottom()
+}
+
+function deleteConversation(id) {
+  const isCurrent = currentId.value === id
+  chatStore.deleteConversation(id)
+  if (isCurrent && !chatStore.current) {
+    // 全部删光后新建一个
+    chatStore.createConversation('新对话')
+  }
+  input.value = ''
+  loading.value = false
+  streamAbort?.abort()
 }
 
 function retry(index) {
@@ -342,21 +407,28 @@ function retry(index) {
   }
   if (userIndex < 0) return
   const content = messages.value[userIndex].content
-  messages.value = messages.value.slice(0, userIndex)
+  // 截断到该用户消息之后
+  const conv = chatStore.current
+  conv.messages = conv.messages.slice(0, userIndex)
+  chatStore.replaceMessages(currentId.value, conv.messages)
   input.value = content
   send(content)
 }
 
 async function clearChat() {
-  if (!messages.value.length) return
+  const conv = chatStore.current
+  if (!conv || !conv.messages.length) return
   try {
     await ElMessageBox.confirm('确定清空当前对话？', '清空对话', {
       confirmButtonText: '清空',
       cancelButtonText: '取消',
       type: 'warning'
     })
-    messages.value = []
-    localStorage.removeItem(STORAGE_KEY)
+    chatStore.clearCurrent()
+    input.value = ''
+    loading.value = false
+    streamAbort?.abort()
+    scrollToBottom()
   } catch { /* cancelled */ }
 }
 
@@ -369,11 +441,13 @@ async function copy(text) {
 
 function setFeedback(msg, value) {
   msg.feedback = msg.feedback === value ? null : value
+  if (!isUnmounted) chatStore.replaceMessages(currentId.value, messages.value)
 }
 
 function exportChat() {
-  if (!messages.value.length) return
-  const lines = messages.value.map((m) => {
+  const conv = chatStore.current
+  if (!conv || !conv.messages.length) return
+  const lines = conv.messages.map((m) => {
     const role = m.role === 'user' ? '我' : '助手'
     let text = `## ${role}\n\n${m.content}`
     const used = (m.steps || []).filter((s) => s.status === 'done').map((s) => toolMeta(s.tool).label)
@@ -405,6 +479,10 @@ async function loadSuggestions() {
   suggestions.value = list.slice(0, 3)
 }
 
+function formatTime(ts) {
+  return dayjs(ts).format('HH:mm')
+}
+
 function handleKeydown(e) {
   if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
     e.preventDefault()
@@ -419,38 +497,38 @@ function scrollToBottom() {
 }
 
 function normalizeMessage(m) {
-  // 兼容旧版本地记录：过去存的是单个 toolResult，现在统一成 steps 数组
   const steps = m.steps || (m.toolResult ? [{ tool: m.toolResult.name, status: 'done', summary: '' }] : [])
   return { role: m.role, content: m.content, steps, sources: m.sources || [], feedback: m.feedback || null }
 }
 
-watch(messages, persistMessages, { deep: true })
+const displayName = computed(() => userStore.userInfo?.nickname || userStore.userInfo?.realName || userStore.userInfo?.username || '')
+const greeting = computed(() => {
+  const h = new Date().getHours()
+  if (h < 6) return '夜深了'
+  if (h < 12) return '上午好'
+  if (h < 18) return '下午好'
+  return '晚上好'
+})
 
 onMounted(() => {
   isUnmounted = false
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const saved = JSON.parse(raw)
-      messages.value = saved
-        .filter((m) => m.role === 'user' || (m.role === 'assistant' && m.content))
-        .map(normalizeMessage)
-    }
-  } catch { /* ignore */ }
+  chatStore.loadConversations()
+  if (!chatStore.current) {
+    chatStore.createConversation('新对话')
+  }
   if (!userStore.userInfo) userStore.fetchMe().catch(() => {})
   loadSuggestions()
   window.addEventListener('keydown', handleKeydown)
 })
 onUnmounted(() => {
   isUnmounted = true
-  persistMessages()
   streamAbort?.abort()
   window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
 <style scoped>
-/* ======== Root: flex column fills parent ======== */
+/* ======== Root ======== */
 .agent {
   display: flex;
   flex-direction: column;
@@ -458,7 +536,116 @@ onUnmounted(() => {
   min-height: 480px;
 }
 
-/* ======== Top toolbar ======== */
+/* 左侧对话列表 */
+.agent-sidebar {
+  width: 260px;
+  border-right: 1px solid var(--border-default);
+  background: var(--bg-page);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.agent-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  color: var(--ink-600);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin: 10px 12px;
+  transition: all 0.15s;
+}
+.agent-new-btn:hover {
+  border-color: var(--brand-400);
+  color: var(--brand-600);
+  background: var(--brand-50);
+}
+.agent-new-btn Plus {
+  color: var(--brand-500);
+}
+.agent-list {
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+.agent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 10px;
+  margin: 0 8px 6px;
+  height: auto;
+  min-height: 48px;
+  transition: all 0.15s;
+}
+.agent-item:hover {
+  background: var(--ink-50);
+}
+.agent-item.active {
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+}
+.agent-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.agent-item-title {
+  font-size: 13.5px;
+  color: var(--ink-800);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-item.active .agent-item-title {
+  color: var(--brand-600);
+  font-weight: 600;
+}
+.agent-item-time {
+  font-size: 11px;
+  color: var(--ink-400);
+  margin-top: 2px;
+}
+.agent-item-del {
+  border: none;
+  background: transparent;
+  color: var(--ink-400);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: all 0.15s;
+}
+.agent-item:hover .agent-item-del,
+.agent-item.active .agent-item-del {
+  opacity: 1;
+}
+.agent-item-del:hover {
+  background: var(--ink-100);
+  color: var(--danger);
+}
+.agent-empty {
+  padding: 24px 16px;
+  font-size: 13px;
+  color: var(--ink-400);
+  text-align: center;
+}
+
+/* 右侧聊天区 */
+.agent-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .agent-hd {
   display: flex;
   align-items: center;
@@ -556,14 +743,8 @@ onUnmounted(() => {
   animation: agent-hero-in 0.4s var(--ease-out) both;
 }
 @keyframes agent-hero-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .agent-hero-mark {
   width: 56px;
@@ -666,14 +847,8 @@ onUnmounted(() => {
   flex-direction: row-reverse;
 }
 @keyframes agent-msg-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .agent-msg-avatar {
   width: 30px;
@@ -729,7 +904,6 @@ onUnmounted(() => {
   color: var(--ink-800);
   word-break: break-word;
 }
-
 .agent-msg-thinking {
   display: inline-flex;
   align-items: center;
@@ -748,88 +922,30 @@ onUnmounted(() => {
 }
 
 /* ---- Rich text (markdown) ---- */
-.agent-msg-rich :deep(p) {
-  margin: 0 0 10px;
-}
-.agent-msg-rich :deep(p:last-child) {
-  margin-bottom: 0;
-}
-.agent-msg-rich :deep(strong) {
-  font-weight: 600;
-  color: var(--ink-950);
-}
+.agent-msg-rich :deep(p) { margin: 0 0 10px; }
+.agent-msg-rich :deep(p:last-child) { margin-bottom: 0; }
+.agent-msg-rich :deep(strong) { font-weight: 600; color: var(--ink-950); }
 .agent-msg-rich :deep(ul),
-.agent-msg-rich :deep(ol) {
-  margin: 0 0 10px;
-  padding-left: 20px;
-}
-.agent-msg-rich :deep(li) {
-  margin-bottom: 4px;
-}
-.agent-msg-rich :deep(blockquote) {
-  margin: 0 0 10px;
-  padding: 2px 0 2px 14px;
-  border-left: 2px solid var(--ink-300);
-  color: var(--ink-600);
-}
+.agent-msg-rich :deep(ol) { margin: 0 0 10px; padding-left: 20px; }
+.agent-msg-rich :deep(li) { margin-bottom: 4px; }
+.agent-msg-rich :deep(blockquote) { margin: 0 0 10px; padding: 2px 0 2px 14px; border-left: 2px solid var(--ink-300); color: var(--ink-600); }
 .agent-msg-rich :deep(h1),
 .agent-msg-rich :deep(h2),
 .agent-msg-rich :deep(h3),
-.agent-msg-rich :deep(h4) {
-  font-weight: 650;
-  color: var(--ink-950);
-  margin: 16px 0 8px;
-}
+.agent-msg-rich :deep(h4) { font-weight: 650; color: var(--ink-950); margin: 16px 0 8px; }
 .agent-msg-rich :deep(h1) { font-size: 17px; }
 .agent-msg-rich :deep(h2) { font-size: 16px; }
 .agent-msg-rich :deep(h3) { font-size: 15px; }
 .agent-msg-rich :deep(h4) { font-size: 14px; }
-.agent-msg-rich :deep(code) {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  background: var(--ink-100);
-  border-radius: 4px;
-  padding: 1px 5px;
-  color: var(--ink-800);
-}
-.agent-msg-rich :deep(pre) {
-  margin: 0 0 12px;
-  background: var(--ink-900);
-  color: var(--ink-100);
-  border-radius: 8px;
-  padding: 14px 16px;
-  overflow-x: auto;
-}
-.agent-msg-rich :deep(pre code) {
-  background: transparent;
-  padding: 0;
-  color: inherit;
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-.agent-msg-rich :deep(table) {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0 0 12px;
-  font-size: 13px;
-}
+.agent-msg-rich :deep(code) { font-family: var(--font-mono); font-size: 12.5px; background: var(--ink-100); border-radius: 4px; padding: 1px 5px; color: var(--ink-800); }
+.agent-msg-rich :deep(pre) { margin: 0 0 12px; background: var(--ink-900); color: var(--ink-100); border-radius: 8px; padding: 14px 16px; overflow-x: auto; }
+.agent-msg-rich :deep(pre code) { background: transparent; padding: 0; color: inherit; font-size: 12.5px; line-height: 1.6; }
+.agent-msg-rich :deep(table) { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 13px; }
 .agent-msg-rich :deep(th),
-.agent-msg-rich :deep(td) {
-  border: 1px solid var(--ink-200);
-  padding: 6px 10px;
-  text-align: left;
-}
-.agent-msg-rich :deep(th) {
-  background: var(--ink-50);
-  font-weight: 600;
-}
-.agent-msg-rich :deep(a) {
-  color: var(--brand-600);
-  text-decoration: none;
-}
-.agent-msg-rich :deep(a:hover) {
-  text-decoration: underline;
-}
+.agent-msg-rich :deep(td) { border: 1px solid var(--ink-200); padding: 6px 10px; text-align: left; }
+.agent-msg-rich :deep(th) { background: var(--ink-50); font-weight: 600; }
+.agent-msg-rich :deep(a) { color: var(--brand-600); text-decoration: none; }
+.agent-msg-rich :deep(a:hover) { text-decoration: underline; }
 
 /* ---- Message actions (hover reveal) ---- */
 .agent-msg-actions {
@@ -858,14 +974,8 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all var(--dur-fast) var(--ease-out);
 }
-.agent-action:hover {
-  background: var(--ink-100);
-  color: var(--ink-700);
-}
-.agent-action.active {
-  color: var(--brand-600);
-  background: var(--brand-50);
-}
+.agent-action:hover { background: var(--ink-100); color: var(--ink-700); }
+.agent-action.active { color: var(--brand-600); background: var(--brand-50); }
 .agent-action::after {
   content: '';
   position: absolute;
@@ -920,23 +1030,11 @@ onUnmounted(() => {
   color: var(--ink-400);
   flex-shrink: 0;
 }
-.agent-step.is-running .agent-step-dot {
-  background: var(--brand-50);
-}
-.agent-step-label {
-  font-weight: 500;
-  color: var(--ink-700);
-}
-.agent-step.is-running .agent-step-label {
-  color: var(--ink-500);
-}
-.agent-step-summary {
-  color: var(--ink-400);
-}
-.agent-step-summary::before {
-  content: "·";
-  margin-right: 6px;
-}
+.agent-step.is-running .agent-step-dot { background: var(--brand-50); }
+.agent-step-label { font-weight: 500; color: var(--ink-700); }
+.agent-step.is-running .agent-step-label { color: var(--ink-500); }
+.agent-step-summary { color: var(--ink-400); }
+.agent-step-summary::before { content: "·"; margin-right: 6px; }
 .agent-step-pulse {
   width: 6px;
   height: 6px;
@@ -1010,15 +1108,14 @@ onUnmounted(() => {
   background: var(--brand-400);
   animation: agent-blink 1.2s infinite ease-in-out;
 }
-.agent-typing span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.agent-typing span:nth-child(3) {
-  animation-delay: 0.4s;
-}
+.agent-typing span:nth-child(2) { animation-delay: 0.2s; }
+.agent-typing span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes agent-blink {
   0%, 80%, 100% { opacity: 0.3; }
   40% { opacity: 1; }
+}
+@keyframes agent-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ======== Composer ======== */
@@ -1039,9 +1136,7 @@ onUnmounted(() => {
   box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04), 0 8px 24px -8px rgba(28, 25, 23, 0.08);
   transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
-.agent-composer:hover {
-  border-color: var(--border-strong);
-}
+.agent-composer:hover { border-color: var(--border-strong); }
 .agent-composer:focus-within {
   border-color: var(--brand-500);
   box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.12), 0 8px 24px -8px rgba(15, 118, 110, 0.18);
@@ -1055,9 +1150,7 @@ onUnmounted(() => {
   line-height: 1.7;
   color: var(--ink-900);
 }
-.agent-composer :deep(.el-textarea__inner::placeholder) {
-  color: var(--ink-400);
-}
+.agent-composer :deep(.el-textarea__inner::placeholder) { color: var(--ink-400); }
 .agent-composer-foot {
   display: flex;
   align-items: center;
@@ -1102,9 +1195,7 @@ onUnmounted(() => {
   transform: translateY(-1px) scale(1.04);
   box-shadow: 0 4px 14px rgba(15, 118, 110, 0.38);
 }
-.agent-send:active:not(:disabled) {
-  transform: translateY(0) scale(0.96);
-}
+.agent-send:active:not(:disabled) { transform: translateY(0) scale(0.96); }
 .agent-send:disabled {
   background: var(--ink-100);
   color: var(--ink-300);
@@ -1119,9 +1210,6 @@ onUnmounted(() => {
   border-top-color: var(--ink-500);
   animation: agent-spin 0.8s linear infinite;
 }
-@keyframes agent-spin {
-  to { transform: rotate(360deg); }
-}
 .agent-composer-note {
   margin-top: 8px;
   text-align: center;
@@ -1135,28 +1223,14 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
     max-width: 420px;
   }
-  .agent-meeting {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
+  .agent-meeting { flex-wrap: wrap; gap: 8px; }
 }
 @media (max-width: 768px) {
-  .agent-body {
-    padding: 16px 16px 24px;
-  }
-  .agent-hero {
-    padding-top: 5vh;
-    min-height: 0;
-  }
-  .agent-hint {
-    display: none;
-  }
-  .agent-msg-user .agent-msg-content {
-    max-width: 90%;
-  }
-  .agent-meeting {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
+  .agent-sidebar { display: none; }
+  .agent-body { padding: 16px 16px 24px; }
+  .agent-hero { padding-top: 5vh; min-height: 0; }
+  .agent-hint { display: none; }
+  .agent-msg-user .agent-msg-content { max-width: 90%; }
+  .agent-meeting { flex-wrap: wrap; gap: 8px; }
 }
 </style>

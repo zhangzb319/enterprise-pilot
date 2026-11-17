@@ -4,6 +4,7 @@
 /ai 转发到本服务。只承载 Agent 对话,不直连数据库。
  */
 
+import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { config } from "./config.js";

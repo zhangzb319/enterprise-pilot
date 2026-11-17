@@ -19,7 +19,7 @@ export default defineConfig({
       '/ai': {
         target: 'http://127.0.0.1:8002',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/ai/, '')
+        rewrite: (path) => path.replace(/^\/ai/, ''),
       },
       '/py': {
         target: 'http://127.0.0.1:8001',
