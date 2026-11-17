@@ -176,7 +176,7 @@ Web (Vue 3, :5173)  ──>  Java (Spring Boot, :8080)  ──>  Python (FastAPI
 
 2. **`docker-compose.yml` 实际无法构建**:`java-backend` 与 `web` 服务声明了 `build: context: ...` 但缺少 Dockerfile;`python-ai` 的 Dockerfile 是 0 字节空文件。docs 写"Docker 部署"会给用户误导。需要补 3 个 Dockerfile,或者从 compose 移除 build 转而用 `image:` 引用预构建镜像。
 
-3. **Python `.env` 已在仓库内且含真实智谱 API key**:`enterprise-pilot-python/.env` 写有 `ZHIPU_API_KEY=bf8b6eacd75d4367b3a2538d21655e26.fWcAf8qnIeRn72Ed`。虽然当前整个目录**不是 git 仓库**(无 `.git/`),且 `.gitignore` 第 27 行 `*.env` 已加忽略,但 `.env` 已被物理写入仓库根。一旦将来 `git init` 而忽略规则没生效,或文件被打包分发/上传,密钥即泄露。**立即行动**:登录智谱控制台作废此 key,重新签发。
+3. **Python `.env` 已在仓库内且含真实智谱 API key**:`enterprise-pilot-python/.env` 写有真实 `ZHIPU_API_KEY`（如 `bf8b6eac****`）。虽然当前整个目录**不是 git 仓库**(无 `.git/`),且 `.gitignore` 第 27 行 `*.env` 已加忽略,但 `.env` 已被物理写入仓库根。一旦将来 `git init` 而忽略规则没生效,或文件被打包分发/上传,密钥即泄露。**立即行动**:登录智谱控制台作废此 key,重新签发。
 
 ### Medium
 
