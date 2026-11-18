@@ -42,6 +42,9 @@ interface AppContextValue {
   setCopilotOpen: (open: boolean) => void;
   copilotContext: CopilotContext | null;
   setCopilotContext: (ctx: CopilotContext | null) => void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean | ((prev: boolean) => boolean)) => void;
+  toggleSidebar: () => void;
   unreadMessages: number;
   unreadNotifications: number;
   sessions: AgentSession[];
@@ -66,6 +69,7 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 const AUTH_STORAGE_KEY = 'ep_auth_v1';
+const SIDEBAR_STORAGE_KEY = 'ep_sidebar_collapsed_v1';
 
 function createEmptySession(title = '新对话'): AgentSession {
   return {
@@ -110,6 +114,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotContext, setCopilotContext] = useState<CopilotContext | null>(null);
+
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      return raw ? JSON.parse(raw) === true : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const setSidebarCollapsed = useCallback((action: boolean | ((prev: boolean) => boolean)) => {
+    setSidebarCollapsedState((prev) => {
+      const next = typeof action === 'function' ? action(prev) : action;
+      try {
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => !prev);
+  }, [setSidebarCollapsed]);
 
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -210,18 +239,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, [user, refreshUnreadCounts]);
 
-  // Global Cmd/Ctrl+K Copilot toggle
+  // Global shortcuts (Cmd/Ctrl+K for Copilot, Cmd/Ctrl+B for Sidebar)
   useEffect(() => {
     if (!user) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCopilotOpen((prev) => !prev);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        const target = e.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return;
+        }
+        e.preventDefault();
+        toggleSidebar();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [user]);
+  }, [user, toggleSidebar]);
 
   const signIn = useCallback(
     async (dto: LoginDTO) => {
@@ -410,6 +451,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCopilotOpen,
       copilotContext,
       setCopilotContext,
+      sidebarCollapsed,
+      setSidebarCollapsed,
+      toggleSidebar,
       unreadMessages,
       unreadNotifications,
       sessions,
@@ -440,6 +484,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       selectedDocumentId,
       copilotOpen,
       copilotContext,
+      sidebarCollapsed,
+      setSidebarCollapsed,
+      toggleSidebar,
       unreadMessages,
       unreadNotifications,
       sessions,

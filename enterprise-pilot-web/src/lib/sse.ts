@@ -83,9 +83,13 @@ export const TOOL_LABELS: Record<string, string> = {
   search_knowledge: '检索企业知识库',
   list_my_bookings: '查询我的会议预订',
   list_meeting_rooms: '查询会议室资源',
+  create_meeting_booking: '执行会议室预订',
   list_my_projects: '查询我的项目',
   list_my_tasks: '查询我的任务',
+  create_project_task: '创建项目新任务',
+  update_task_status: '更新任务状态',
   find_colleague: '查询组织通讯录',
+  send_direct_message: '发送站内私信',
 };
 
 export function getToolLabel(toolName: string): string {

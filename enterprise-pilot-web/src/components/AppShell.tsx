@@ -8,6 +8,8 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -50,6 +52,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     unreadNotifications,
     copilotOpen,
     setCopilotOpen,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    toggleSidebar,
     signOut,
     toasts,
     dismissToast,
@@ -76,24 +81,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const sidebarContent = (
-    <div className="flex h-full flex-col bg-[#F1F3F6] border-r border-slate-200/80">
+    <div className="flex h-full flex-col bg-[#F1F3F6]">
       <div className="flex h-14 items-center justify-between border-b border-slate-200/80 px-4">
         <button
           type="button"
           onClick={() => handleSelectNav('workbench')}
-          className="flex items-center gap-2.5 font-display text-[15px] font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0"
+          className="flex items-center gap-2.5 font-display text-[15px] font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 hover:opacity-85 transition-opacity"
         >
           <BrandMark className="h-6 w-6 shrink-0" />
           <span>Enterprise Pilot</span>
         </button>
-        <button
-          type="button"
-          onClick={() => setMobileMenuOpen(false)}
-          aria-label="关闭导航菜单"
-          className="md:hidden inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200/60"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="关闭导航菜单"
+            className="md:hidden inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200/60"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(true)}
+            aria-label="隐藏侧边栏"
+            title="隐藏侧边栏 (Ctrl+B)"
+            className="hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition-colors"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <nav aria-label="主工作区导航" className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
@@ -160,8 +176,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#F7F8FA] text-slate-900">
-      {/* Desktop Fixed Sidebar (248px) */}
-      <aside className="hidden md:block w-[248px] shrink-0 h-full">{sidebarContent}</aside>
+      {/* Desktop Collapsible Sidebar (248px) */}
+      <aside
+        aria-label="工作区侧边栏"
+        aria-hidden={sidebarCollapsed}
+        className={`hidden md:block shrink-0 h-full transition-[width] duration-300 ease-in-out overflow-hidden border-r border-slate-200/80 bg-[#F1F3F6] ${
+          sidebarCollapsed ? 'w-0 !border-r-0' : 'w-[248px]'
+        }`}
+      >
+        <div className="w-[248px] h-full flex flex-col">
+          {sidebarContent}
+        </div>
+      </aside>
 
       {/* Mobile Drawer Sidebar */}
       {mobileMenuOpen && (
@@ -171,7 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />
-          <aside className="relative z-10 w-[260px] h-full">{sidebarContent}</aside>
+          <aside className="relative z-10 w-[260px] h-full border-r border-slate-200/80">{sidebarContent}</aside>
         </div>
       )}
 
@@ -179,7 +205,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col min-w-0 h-full">
         {/* Strict Single-Row 56px Top Bar */}
         <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-slate-200/80 bg-white px-4 md:px-6">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Mobile drawer button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
@@ -188,8 +215,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Menu className="h-4 w-4" />
             </button>
+
+            {/* Desktop sidebar toggle button */}
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-label={sidebarCollapsed ? '展开侧边栏 (Ctrl+B)' : '隐藏侧边栏 (Ctrl+B)'}
+              title={sidebarCollapsed ? '展开侧边栏 (Ctrl+B)' : '隐藏侧边栏 (Ctrl+B)'}
+              className={`hidden md:inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors shrink-0 ${
+                sidebarCollapsed
+                  ? 'border-blue-200 bg-blue-50/70 text-blue-600 hover:bg-blue-100 hover:text-blue-700'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
+            </button>
+
+            {/* Breadcrumbs & Title */}
             <div className="flex items-center gap-2 text-[13px] min-w-0">
-              <span className="hidden sm:inline text-slate-400 whitespace-nowrap">Enterprise Pilot</span>
+              {sidebarCollapsed ? (
+                <button
+                  type="button"
+                  onClick={() => handleSelectNav('workbench')}
+                  title="回到个人工作台"
+                  className="hidden md:inline-flex items-center gap-1.5 font-display text-[14px] font-bold tracking-tight text-slate-900 hover:text-blue-600 transition-colors shrink-0"
+                >
+                  <BrandMark className="h-5 w-5 shrink-0" />
+                  <span>Enterprise Pilot</span>
+                </button>
+              ) : (
+                <span className="hidden sm:inline text-slate-400 whitespace-nowrap">Enterprise Pilot</span>
+              )}
               <span className="hidden sm:inline text-slate-300" aria-hidden="true">/</span>
               <h1 className="font-display text-[14px] font-semibold text-slate-900 truncate">
                 {VIEW_TITLES[activeView]}

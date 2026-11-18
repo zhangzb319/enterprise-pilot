@@ -208,6 +208,18 @@ export function ProjectsView() {
     }
   };
 
+  const handleUpdateTaskStatus = async (taskId: number, newStatus: number) => {
+    try {
+      await enterpriseApi.updateTaskStatus(taskId, newStatus, activeId ?? undefined);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
+      );
+      notify('任务状态已更新', 'success');
+    } catch (err) {
+      notify(err instanceof Error ? err.message : '更新状态失败', 'error');
+    }
+  };
+
   const handleSubmitDiscussion = async (parentId: number) => {
     if (!activeId) return;
     const content = parentId === 0 ? rootComment.trim() : replyText.trim();
@@ -438,18 +450,23 @@ export function ProjectsView() {
                                       <p className="mt-0.5 text-[12px] text-slate-500 line-clamp-1">{t.description}</p>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-[12px] font-medium">
-                                    <span
-                                      className={
+                                  <td className="px-4 py-3 whitespace-nowrap text-[12px]">
+                                    <select
+                                      aria-label={`修改任务「${t.title}」状态`}
+                                      value={t.status}
+                                      onChange={(e) => void handleUpdateTaskStatus(t.id, Number(e.target.value))}
+                                      className={`rounded border px-2 py-1 text-xs font-medium cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 ${
                                         st.tone === 'done'
-                                          ? 'text-emerald-700'
+                                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                                           : st.tone === 'active'
-                                            ? 'text-blue-600'
-                                            : 'text-slate-500'
-                                      }
+                                            ? 'border-blue-200 bg-blue-50 text-blue-800'
+                                            : 'border-slate-200 bg-slate-50 text-slate-700'
+                                      }`}
                                     >
-                                      {st.label}
-                                    </span>
+                                      <option value={0}>待开始</option>
+                                      <option value={1}>进行中</option>
+                                      <option value={2}>已完成</option>
+                                    </select>
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap text-[12px] text-slate-700">
                                     <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 import { parseSseBuffer } from '../lib/sse';
 import type {
+  ActionItem,
   ApiEnvelope,
   AskResponse,
   BookingCreateDTO,
@@ -17,6 +18,9 @@ import type {
   LoginVO,
   MeetingRoom,
   MeetingRoomDTO,
+  MeetingSummarySaveDTO,
+  MeetingSummaryVO,
+  MeetingTodoVO,
   MessageVO,
   NotificationPageVO,
   PasswordChangeDTO,
@@ -165,6 +169,13 @@ export const enterpriseApi = {
     await liveFetch<void>(`/api/projects/${projectId}/tasks`, { method: 'POST', body: JSON.stringify(dto) });
   },
 
+  async updateTaskStatus(taskId: number, status: number, projectId?: number): Promise<void> {
+    const url = projectId
+      ? `/api/projects/${projectId}/tasks/${taskId}/status?status=${status}`
+      : `/api/projects/tasks/${taskId}/status?status=${status}`;
+    await liveFetch<void>(url, { method: 'PUT' });
+  },
+
   async getDiscussionTree(projectId: number): Promise<DiscussionTreeVO[]> {
     return liveFetch<DiscussionTreeVO[]>(`/api/projects/${projectId}/discussion/tree`);
   },
@@ -208,6 +219,22 @@ export const enterpriseApi = {
 
   async cancelBooking(id: number): Promise<void> {
     await liveFetch<void>(`/api/meeting/bookings/${id}/cancel`, { method: 'PUT' });
+  },
+
+  async getMeetingSummary(bookingId: number): Promise<MeetingSummaryVO | null> {
+    return liveFetch<MeetingSummaryVO | null>(`/api/meeting/bookings/${bookingId}/summary`);
+  },
+
+  async saveMeetingSummary(bookingId: number, dto: MeetingSummarySaveDTO): Promise<MeetingSummaryVO> {
+    return liveFetch<MeetingSummaryVO>(`/api/meeting/bookings/${bookingId}/summary`, {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  async convertMeetingTodoToTask(todoId: number, projectId: number, assigneeId?: number): Promise<void> {
+    const query = assigneeId ? `?projectId=${projectId}&assigneeId=${assigneeId}` : `?projectId=${projectId}`;
+    await liveFetch<void>(`/api/meeting/todos/${todoId}/convert-to-task${query}`, { method: 'POST' });
   },
 
   // --- Messages & Notifications (:8080) ---
@@ -285,8 +312,11 @@ export const enterpriseApi = {
     });
   },
 
-  async summarizeMeeting(bookingId: number, transcript: string): Promise<{ booking_id: number; summary: string }> {
-    return liveFetch<{ booking_id: number; summary: string }>('/api/v1/meetings/summary', {
+  async summarizeMeeting(
+    bookingId: number,
+    transcript: string,
+  ): Promise<{ booking_id: number; summary: string; action_items?: ActionItem[] }> {
+    return liveFetch<{ booking_id: number; summary: string; action_items?: ActionItem[] }>('/api/v1/meetings/summary', {
       method: 'POST',
       body: JSON.stringify({ booking_id: bookingId, transcript }),
     });

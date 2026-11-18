@@ -1,6 +1,7 @@
 package com.zhang.enterprisepilotjava.project.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zhang.enterprisepilotjava.common.exception.BusinessException;
 import com.zhang.enterprisepilotjava.common.util.SecurityUtil;
 import com.zhang.enterprisepilotjava.project.dto.ProjectTaskCreateDTO;
 import com.zhang.enterprisepilotjava.project.entity.ProjectTask;
@@ -48,5 +49,33 @@ public class ProjectTaskServiceImpl extends ServiceImpl<ProjectTaskMapper, Proje
     public List<ProjectTaskVO> getMyTasks() {
         // 聚合查询本身已按"项目负责人或项目成员"限定范围,无需再逐个项目鉴权
         return this.baseMapper.selectMyTasks(SecurityUtil.getCurrentUserId());
+    }
+
+    @Override
+    public void updateTaskStatus(Long projectId, Long taskId, Integer status) {
+        projectAuthorizationService.requireMember(projectId);
+        ProjectTask task = this.getById(taskId);
+        if (task == null || !task.getProjectId().equals(projectId)) {
+            throw new BusinessException("任务不存在或不属于该项目");
+        }
+        if (status == null || status < 0 || status > 2) {
+            throw new BusinessException("任务状态不合法");
+        }
+        task.setStatus(status);
+        this.updateById(task);
+    }
+
+    @Override
+    public void updateTaskStatusDirect(Long taskId, Integer status) {
+        ProjectTask task = this.getById(taskId);
+        if (task == null) {
+            throw new BusinessException("任务不存在");
+        }
+        projectAuthorizationService.requireMember(task.getProjectId());
+        if (status == null || status < 0 || status > 2) {
+            throw new BusinessException("任务状态不合法");
+        }
+        task.setStatus(status);
+        this.updateById(task);
     }
 }

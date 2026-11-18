@@ -55,6 +55,23 @@ public class ProjectController {
         return Result.success(projectTaskService.getTasksByProject(projectId));
     }
 
+    @PutMapping("/{projectId}/tasks/{taskId}/status")
+    public Result<Void> updateTaskStatus(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            @RequestParam Integer status) {
+        projectTaskService.updateTaskStatus(projectId, taskId, status);
+        return Result.success();
+    }
+
+    @PutMapping("/tasks/{taskId}/status")
+    public Result<Void> updateTaskStatusDirect(
+            @PathVariable Long taskId,
+            @RequestParam Integer status) {
+        projectTaskService.updateTaskStatusDirect(taskId, status);
+        return Result.success();
+    }
+
     @PostMapping("/{projectId}/discussions")
     public Result<Void> createDiscussion(@PathVariable Long projectId, @RequestBody @Valid DiscussionCreateDTO dto) {
         projectDiscussionService.createDiscussion(projectId, dto);

@@ -6,9 +6,16 @@ class MeetingSummaryRequest(BaseModel):
     transcript: str = Field(min_length=1)
 
 
+class ActionItem(BaseModel):
+    content: str
+    assignee: str | None = None
+    due_date: str | None = None
+
+
 class MeetingSummaryResponse(BaseModel):
     booking_id: int
     summary: str
+    action_items: list[ActionItem] = []
 
 
 class TranscriptRequest(BaseModel):

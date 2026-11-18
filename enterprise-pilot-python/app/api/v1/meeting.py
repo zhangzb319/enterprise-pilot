@@ -9,7 +9,12 @@ service = MeetingService()
 
 @router.post("/summary", response_model=ApiResponse[MeetingSummaryResponse])
 async def summarize(request: MeetingSummaryRequest):
-    return ok(MeetingSummaryResponse(booking_id=request.booking_id, summary=await service.summarize(request.transcript)))
+    result = await service.summarize(request.transcript)
+    return ok(MeetingSummaryResponse(
+        booking_id=request.booking_id,
+        summary=result["summary"],
+        action_items=result.get("action_items", [])
+    ))
 
 
 @router.post("/transcript", response_model=ApiResponse[dict])

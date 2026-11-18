@@ -14,10 +14,13 @@ interface AgentConversationPanelProps {
 }
 
 const SUGGESTIONS = [
+  '帮我预订明天下午2点到3点的一号会议室，主题是架构评审',
+  '在当前项目里创建一个新任务：完善安全审计，截止到本周五',
+  '把指派给我的任务中包含“安全”的任务标记为已完成',
   '我有哪些指派给我的待办任务？',
-  '差旅住宿和餐补报销标准是什么？',
   '今天有哪些会议日程和可用会议室？',
   '帮我查一下研发中心有哪些同事',
+  '差旅住宿和餐补报销标准是什么？',
 ];
 
 export function AgentConversationPanel({
@@ -83,11 +86,11 @@ export function AgentConversationPanel({
                 </span>
                 <div>
                   <p className="font-display text-sm font-semibold text-slate-900">Enterprise Pilot 智能助手</p>
-                  <p className="text-[12px] text-slate-500">Node SSE 流式调度 · 6 企业工具联动</p>
+                  <p className="text-[12px] text-slate-500">Node SSE 流式调度 · 10 大企业协同与行动工具联动</p>
                 </div>
               </div>
               <p className="mt-3 text-[13px] leading-relaxed text-slate-600">
-                可一键检索内部知识库规范、查询我的待办任务、我的项目进展、会议室预订日程与组织通讯录。
+                支持自然语言智能预订会议室、创建与更新项目任务、代发私信，以及检索企业知识库、查询会议日程与通讯录。
               </p>
               <div className="mt-4 grid grid-cols-1 gap-2">
                 {SUGGESTIONS.map((s) => (

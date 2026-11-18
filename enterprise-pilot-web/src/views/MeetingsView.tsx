@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarPlus, Check, Copy, FileAudio, FileText, Send, Sparkles, X } from 'lucide-react';
+import { ArrowRightCircle, CalendarPlus, Check, CheckCircle2, Copy, FileAudio, FileText, ListTodo, Send, Sparkles, X } from 'lucide-react';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { useApp } from '../context/AppContext';
 import { formatShortDateTime, formatTimeOnly, validateAndCheckBookingConflict } from '../lib/workspace';
 import { enterpriseApi } from '../services/apiClient';
-import type { BookingVO, MeetingRoom, ProjectVO } from '../types/domain';
+import type { BookingVO, MeetingRoom, MeetingTodoVO, ProjectVO } from '../types/domain';
 
 function defaultFutureInput(hoursFromNow: number): string {
   const d = new Date(Date.now() + hoursFromNow * 3600 * 1000);
@@ -83,6 +83,9 @@ export function MeetingsView() {
   const [audioUrl, setAudioUrl] = useState('https://internal-cdn.enterprise.local/meetings/arch-review-2026.mp3');
   const [transcript, setTranscript] = useState('');
   const [summary, setSummary] = useState('');
+  const [todos, setTodos] = useState<MeetingTodoVO[]>([]);
+  const [convertingTodoId, setConvertingTodoId] = useState<number | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [syncProjectId, setSyncProjectId] = useState<string>('');
@@ -191,11 +194,51 @@ export function MeetingsView() {
     try {
       const res = await enterpriseApi.summarizeMeeting(activeBooking.id, transcript.trim());
       setSummary(res.summary);
-      notify('会议纪要生成完成', 'success');
+
+      const parsedTodos = (res.action_items ?? []).map((item) => ({
+        content: item.content,
+        dueDate: item.due_date ?? undefined,
+      }));
+
+      // 持久化保存至 Java 数据库
+      try {
+        const saved = await enterpriseApi.saveMeetingSummary(activeBooking.id, {
+          audioUrl: audioUrl.trim(),
+          transcriptText: transcript.trim(),
+          summaryText: res.summary,
+          todos: parsedTodos,
+        });
+        if (saved?.todos) {
+          setTodos(saved.todos);
+        }
+      } catch {
+        // 如果后端保存发生警告，不阻断前端展示
+      }
+
+      notify('会议纪要已生成并归档', 'success');
     } catch (err) {
       notify(err instanceof Error ? err.message : '生成纪要失败', 'error');
     } finally {
       setSummarizing(false);
+    }
+  };
+
+  const handleConvertTodoToTask = async (todo: MeetingTodoVO) => {
+    if (!syncProjectId) {
+      notify('请先在下方选择目标关联项目', 'error');
+      return;
+    }
+    setConvertingTodoId(todo.id);
+    try {
+      await enterpriseApi.convertMeetingTodoToTask(todo.id, Number(syncProjectId), todo.assigneeId ?? undefined);
+      setTodos((prev) =>
+        prev.map((t) => (t.id === todo.id ? { ...t, status: 1 } : t)),
+      );
+      notify(`已将待办「${todo.content}」转为项目任务`, 'success');
+    } catch (err) {
+      notify(err instanceof Error ? err.message : '转为任务失败', 'error');
+    } finally {
+      setConvertingTodoId(null);
     }
   };
 
@@ -219,10 +262,25 @@ export function MeetingsView() {
     setTimeout(() => setCopied(false), 1800);
   };
 
-  const openBookingDetail = (booking: BookingVO) => {
+  const openBookingDetail = async (booking: BookingVO) => {
     setActiveBooking(booking);
     setTranscript('');
     setSummary('');
+    setTodos([]);
+    setLoadingSummary(true);
+    try {
+      const saved = await enterpriseApi.getMeetingSummary(booking.id);
+      if (saved) {
+        if (saved.audioUrl) setAudioUrl(saved.audioUrl);
+        if (saved.transcriptText) setTranscript(saved.transcriptText);
+        if (saved.summaryText) setSummary(saved.summaryText);
+        if (saved.todos) setTodos(saved.todos);
+      }
+    } catch {
+      // 容错: 无纪要时不报错
+    } finally {
+      setLoadingSummary(false);
+    }
   };
 
   const activeRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
@@ -592,6 +650,71 @@ export function MeetingsView() {
                   <div className="rounded-md border border-slate-200 bg-white p-4">
                     <MarkdownRenderer content={summary} />
                   </div>
+
+                  {todos && todos.length > 0 && (
+                    <div className="rounded-md border border-slate-200 bg-white p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-900">
+                          <ListTodo className="h-4 w-4 text-blue-600" />
+                          <span>提取的会议待办事项 ({todos.length})</span>
+                        </div>
+                        <span className="text-[11px] text-slate-400">可一键转入项目任务</span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {todos.map((todo) => {
+                          const isDone = todo.status === 1;
+                          return (
+                            <div
+                              key={todo.id}
+                              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-lg border p-3 text-xs transition-colors ${
+                                isDone
+                                  ? 'border-emerald-200 bg-emerald-50/50 text-slate-500'
+                                  : 'border-slate-200 bg-slate-50/70 text-slate-800'
+                              }`}
+                            >
+                              <div className="flex items-start gap-2 min-w-0">
+                                {isDone ? (
+                                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600 shrink-0" />
+                                ) : (
+                                  <div className="mt-1 h-2 w-2 rounded-full bg-blue-600 shrink-0" />
+                                )}
+                                <div className="min-w-0">
+                                  <p className={`font-medium ${isDone ? 'line-through text-slate-500' : 'text-slate-900'}`}>
+                                    {todo.content}
+                                  </p>
+                                  {(todo.assigneeName || todo.dueDate) && (
+                                    <p className="mt-0.5 text-[11px] text-slate-500 font-mono">
+                                      {todo.assigneeName && `负责人: ${todo.assigneeName} `}
+                                      {todo.dueDate && `截止: ${todo.dueDate}`}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 flex items-center gap-2">
+                                {isDone ? (
+                                  <span className="rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                                    已转为项目任务
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={convertingTodoId === todo.id || !syncProjectId}
+                                    onClick={() => void handleConvertTodoToTask(todo)}
+                                    className="inline-flex items-center gap-1 rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-40 transition-colors"
+                                  >
+                                    <ArrowRightCircle className="h-3 w-3" />
+                                    <span>{convertingTodoId === todo.id ? '转入中…' : '转为项目任务'}</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {projects.length > 0 && (
                     <div className="flex items-center gap-2 pt-1">

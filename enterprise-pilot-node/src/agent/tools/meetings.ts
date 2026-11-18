@@ -80,4 +80,79 @@ export function registerMeetingTools(): void {
             return new ToolOutcome(`查到 ${items.length} 间会议室`, { rooms: items });
         },
     );
+
+    tool(
+        "create_meeting_booking",
+        "为用户预订会议室。用户指令如「帮我订明天下午2点到3点的一号会议室，主题是技术分享」时使用。开始与结束时间必须为具体日期时间，且晚于当前时间。",
+        {
+            type: "object",
+            properties: {
+                room_name: { type: "string", description: "会议室名称或编号，如「一号会议室」或「大会议室」" },
+                room_id: { type: "integer", description: "会议室ID，若已知可直接传入" },
+                title: { type: "string", description: "会议主题" },
+                start_time: { type: "string", description: "开始时间，格式 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DDTHH:mm:ss" },
+                end_time: { type: "string", description: "结束时间，格式 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DDTHH:mm:ss" },
+            },
+            required: ["title", "start_time", "end_time"],
+        },
+        async (ctx: ToolContext, args) => {
+            const title = String(args.title ?? "").trim();
+            if (!title) {
+                return new ToolOutcome("预订失败", { error: "缺少会议主题" }, [], false);
+            }
+            const rawStart = String(args.start_time ?? "").trim();
+            const rawEnd = String(args.end_time ?? "").trim();
+            if (!rawStart || !rawEnd) {
+                return new ToolOutcome("预订失败", { error: "缺少开始或结束时间" }, [], false);
+            }
+
+            const formatIso = (t: string) => {
+                const s = t.replace(" ", "T");
+                return s.length === 16 ? `${s}:00` : s;
+            };
+            const startTime = formatIso(rawStart);
+            const endTime = formatIso(rawEnd);
+
+            const rooms = await java.meetingRooms(ctx.authorization);
+            let targetRoom: Record<string, unknown> | undefined;
+
+            if (args.room_id != null) {
+                targetRoom = rooms.find((r) => Number(r.id) === Number(args.room_id));
+            }
+            if (!targetRoom && args.room_name) {
+                const q = String(args.room_name).toLowerCase().replace(/会议室$/, "").trim();
+                targetRoom = rooms.find((r) => {
+                    const name = String(r.roomName ?? "").toLowerCase();
+                    return name.includes(q) || q.includes(name.replace(/会议室$/, ""));
+                });
+            }
+            if (!targetRoom) {
+                targetRoom = rooms.find((r) => r.status !== 0);
+            }
+            if (!targetRoom) {
+                return new ToolOutcome("没有可用会议室", { error: "系统中未找到可用会议室" }, [], false);
+            }
+
+            const roomId = Number(targetRoom.id);
+            const roomName = String(targetRoom.roomName);
+
+            try {
+                await java.createBooking(
+                    { roomId, title, startTime, endTime },
+                    ctx.authorization,
+                );
+                return new ToolOutcome(
+                    `已成功预订 ${roomName} (${startTime.slice(5, 16)} ~ ${endTime.slice(11, 16)})`,
+                    {
+                        success: true,
+                        booking: { title, room: roomName, start: startTime, end: endTime },
+                    },
+                );
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                return new ToolOutcome("会议预订失败", { error: message }, [], false);
+            }
+        },
+        true,
+    );
 }

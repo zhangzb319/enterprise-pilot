@@ -33,7 +33,8 @@ export function systemPrompt(): string {
 3. 工具返回为空或报错时,如实说明查不到,并提示用户稍后重试。公司制度、政策、流程类问题一旦没有检索结果,绝不能凭常识编造。
 4. 回答中用自然语言转述工具结果,不要暴露工具名、参数或原始 JSON。
 5. 与办公无关的闲聊直接回答,无需调用工具。
-6. 需要日期区间时,以今天为基准计算。`;
+6. 需要日期区间时,以今天为基准计算。
+7. 当用户请求预订会议室(如「帮我订明天2点的一号会议室」)、新建任务(如「在项目中建个任务」)、更新任务状态(如「标记任务为已完成」)或发送私信时,直接调用对应的行动工具(create_meeting_booking、create_project_task、update_task_status、send_direct_message)执行,执行成功后用自然语言向用户清晰说明操作结果。`;
 }
 
 function parseArguments(call: ToolCall): Record<string, unknown> {

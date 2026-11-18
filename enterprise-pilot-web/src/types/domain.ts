@@ -195,6 +195,47 @@ export interface MeetingMinutesDraft {
   updatedAt: string;
 }
 
+export interface ActionItem {
+  content: string;
+  assignee?: string | null;
+  due_date?: string | null;
+}
+
+export interface MeetingTodoDTO {
+  content: string;
+  assigneeId?: number;
+  dueDate?: string;
+}
+
+export interface MeetingSummarySaveDTO {
+  audioUrl?: string;
+  transcriptText?: string;
+  summaryText?: string;
+  todos?: MeetingTodoDTO[];
+}
+
+export interface MeetingTodoVO {
+  id: number;
+  summaryId: number;
+  content: string;
+  assigneeId: number | null;
+  assigneeName: string | null;
+  dueDate: string | null;
+  status: number; // 0待完成 1已完成
+  createdAt: string;
+}
+
+export interface MeetingSummaryVO {
+  id: number;
+  bookingId: number;
+  audioUrl: string | null;
+  transcriptText: string | null;
+  summaryText: string | null;
+  processStatus: number;
+  createdAt: string;
+  todos: MeetingTodoVO[];
+}
+
 export interface DocumentItem {
   document_id: string;
   title: string;
